@@ -1,0 +1,8 @@
+{
+  "agent_id": "spotify_query_agent",
+  "version": "1.4.2",
+  "description": "Fetches local library, playlists, and recently played data from Spotify.",
+  "allowed_scopes": ["library.read", "playlists.read", "history.read"],
+  "prohibited_scopes": ["playback.control", "user.billing"],
+  "required_tools": ["SpotifyClient", "CacheManager"]
+}
