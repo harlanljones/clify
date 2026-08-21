@@ -1,0 +1,30 @@
+{
+  "agent_id": "cliamp_query_agent",
+  "version": "1.0.0",
+  "description": "Show cliamp playlist playlists, library, listen history, recently played, what is currently playing, and player status.",
+  "allowed_scopes": ["playlists.read", "history.read", "player.status.read"],
+  "prohibited_scopes": ["playback.control", "playlists.write", "player.config"],
+  "required_tools": ["CliampClient"],
+  "token_tables": {
+    "allowed_tokens": {
+      "playlist": "playlists.read",
+      "playlists": "playlists.read",
+      "library": "playlists.read",
+      "history": "history.read",
+      "recently": "history.read",
+      "played": "history.read",
+      "status": "player.status.read",
+      "playing": "player.status.read",
+      "current": "player.status.read"
+    },
+    "prohibited_tokens": {
+      "queue": "playback.control",
+      "seek": "playback.control",
+      "daemon": "playback.control",
+      "skip": "playback.control",
+      "pause": "playback.control",
+      "volume": "playback.control",
+      "shuffle": "playback.control"
+    }
+  }
+}

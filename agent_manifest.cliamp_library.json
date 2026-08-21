@@ -1,0 +1,28 @@
+{
+  "agent_id": "cliamp_library_agent",
+  "version": "1.0.0",
+  "description": "Show a unified library of playlists and recently played history from local cliamp and Spotify sources.",
+  "allowed_scopes": ["playlists.read", "history.read"],
+  "prohibited_scopes": ["playback.control", "playlists.write", "player.config"],
+  "required_tools": ["CliampClient", "SpotifyClient"],
+  "token_tables": {
+    "allowed_tokens": {
+      "playlist": "playlists.read",
+      "playlists": "playlists.read",
+      "library": "playlists.read",
+      "history": "history.read",
+      "recently": "history.read",
+      "played": "history.read"
+    },
+    "prohibited_tokens": {
+      "queue": "playback.control",
+      "seek": "playback.control",
+      "daemon": "playback.control",
+      "skip": "playback.control",
+      "pause": "playback.control",
+      "play": "playback.control",
+      "volume": "playback.control",
+      "shuffle": "playback.control"
+    }
+  }
+}

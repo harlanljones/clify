@@ -16,8 +16,20 @@ class ContextOverflowError(Exception):
 
 class Orchestrator:
     def __init__(self, agent, window_size=CONTEXT_WINDOW_SIZE):
-        self.agent = agent
+        # Accept a single agent (legacy) or a list of agents routed by scope.
+        if isinstance(agent, (list, tuple)):
+            self.agents = list(agent)
+        else:
+            self.agents = [agent]
+        self.agent = self.agents[0]  # backward-compat attribute
         self.window_size = window_size
+
+    def _route_agent(self, task: str):
+        """Return the first agent whose scope guard authorizes the task."""
+        for agent in self.agents:
+            if agent.is_task_authorized(task):
+                return agent
+        return None
 
     def estimate_tokens(self, text: str) -> int:
         return max(1, len(text) // CHARS_PER_TOKEN)
@@ -29,9 +41,10 @@ class Orchestrator:
                 f"Prompt exceeds {CONTEXT_OVERFLOW_RATIO:.0%} of the "
                 f"{self.window_size}-token context window."
             )
-        if not self.agent.is_task_authorized(task):
+        if self._route_agent(task) is None:
             raise PermissionError(f"Task rejected by scope guard: {task!r}")
 
     def run(self, task: str) -> dict:
         self.validate_task(task)
-        return self.agent.execute_monitored_loop(task)
+        agent = self._route_agent(task)
+        return agent.execute_monitored_loop(task)

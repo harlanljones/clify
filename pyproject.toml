@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "clify"
-version = "1.4.2"
+version = "1.6.0"
 description = "Metric-driven Agent-Driven Development (ADD) framework: scope-gated agents, SLA telemetry, and TDD lifecycle verification."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -25,9 +25,15 @@ classifiers = [
 [project.optional-dependencies]
 test = ["pytest>=7.0"]
 
+[project.scripts]
+clify = "clify_cli:main"
+
 [tool.setuptools]
-py-modules = ["core_agents", "orchestrator", "monitoring"]
+py-modules = ["core_agents", "orchestrator", "monitoring", "cliamp_client", "cliamp_agents", "cliamp_controller", "cliamp_playback", "spotify_client", "spotify_auth", "unified_library", "clify_cli"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "integration: tests requiring a live cliamp daemon (set CLIAMP_INTEGRATION=1)",
+]

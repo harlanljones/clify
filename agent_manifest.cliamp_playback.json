@@ -1,0 +1,33 @@
+{
+  "agent_id": "cliamp_playback_agent",
+  "version": "1.0.0",
+  "description": "play pause toggle stop skip next previous volume seek queue load shuffle repeat the this song track music playlist playback up please",
+  "allowed_scopes": ["playback.control"],
+  "prohibited_scopes": ["playlists.write", "user.billing"],
+  "required_tools": ["CliampController"],
+  "token_tables": {
+    "allowed_tokens": {
+      "play": "playback.control",
+      "pause": "playback.control",
+      "toggle": "playback.control",
+      "stop": "playback.control",
+      "next": "playback.control",
+      "skip": "playback.control",
+      "prev": "playback.control",
+      "previous": "playback.control",
+      "volume": "playback.control",
+      "seek": "playback.control",
+      "queue": "playback.control",
+      "load": "playback.control",
+      "shuffle": "playback.control",
+      "repeat": "playback.control"
+    },
+    "prohibited_tokens": {
+      "billing": "user.billing",
+      "payment": "user.billing",
+      "subscribe": "user.billing",
+      "delete": "playlists.write",
+      "clear": "playlists.write"
+    }
+  }
+}

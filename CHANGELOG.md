@@ -5,6 +5,74 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Native `cliamp-clify` fork integration with a merged Recently Played section,
+  30-second cache, independent source degradation, and normal playlist loading.
+- Versioned `cliamp.history.unified/1` IPC/CLI contract. clify prefers this
+  capability and remains compatible with stock cliamp through its existing
+  direct merge fallback.
+
+## [1.6.0] - 2026-08-21
+
+### Added
+
+- A standard-library `SpotifyClient` with refresh-token OAuth, one-time
+  401/429 retries, pagination, structured errors, credential redaction, and a
+  30-second playlist cache.
+- `clify spotify login`, using Authorization Code with PKCE, OAuth state
+  validation, a loopback callback, and mode-0600 refresh-token storage. No
+  Client Secret is required or stored.
+- `UnifiedLibraryClient` and a read-only agent that merge and deduplicate
+  local/Spotify history, preserve Recently Played → Library → Your Playlists
+  ordering, and isolate provider failures.
+- The installed `clify` CLI with `library`, `recent`, `play`, and `status`
+  commands plus machine-readable JSON output.
+- Recorded Spotify contracts, cross-version CI, and provider-degradation
+  monitoring.
+
+### Documentation
+
+- Recorded the cliamp Lua-plugin feasibility decision: plugins cannot extend
+  the built-in Spotify browser layout, so `clify library` is the supported
+  unified presentation surface.
+
+## [1.5.0] - 2026-08-21
+
+Minor release adding [cliamp](https://github.com/bjarneo/cliamp) integration
+per [ROADMAP.md](ROADMAP.md) Phases 0–4. No breaking changes to the existing
+Spotify agent or public APIs.
+
+### Added
+
+- `cliamp_client.py` — `CliampClient`, a thin injectable subprocess wrapper
+  around cliamp's `--json` subcommands (`playlist show`, `playlist list`,
+  `history`, `status`), with a structured `ToolError` hierarchy per §4.2
+  (binary missing, non-zero exit, timeout, parse errors, daemon down).
+- `cliamp_agents.py` — `CliampQueryAgent`, a read-only cliamp agent
+  (playlists, listening history, player status) scoped by
+  `agent_manifest.cliamp.json`.
+- `cliamp_controller.py` — `CliampController`, the mutation-capable seam
+  wrapping cliamp IPC verbs (`play`, `pause`, `toggle`, `stop`, `next`,
+  `prev`, `volume`, `seek`, `queue`, `load`, `shuffle`, `repeat`) with a
+  fail-fast daemon precondition (no auto-spawn).
+- `cliamp_playback.py` — `CliampPlaybackAgent`, the only agent authorized
+  for `playback.control`, with unambiguous verb routing and a post-command
+  status verification loop capped at the §3.3 max iteration depth.
+- Multi-agent scope-based routing in `Orchestrator` (accepts a list of
+  agents; single-agent usage unchanged).
+- `docs/cliamp_schemas.md` — pinned cliamp JSON schemas (v1.63.2) and the
+  subprocess failure-mode contract.
+- `tests/test_cliamp_contract.py` — contract tests pinning cliamp's JSON
+  schemas (fail loudly on upstream drift) plus §5 alert verification under
+  fault injection.
+- `tests/test_cliamp_integration.py` — live-daemon integration tests,
+  marked `@pytest.mark.integration` and skipped unless `CLIAMP_INTEGRATION`
+  is set.
+- README section "Using clify with cliamp" with quickstart.
+
 ## [1.4.2] - 2026-08-21
 
 Initial public release of the Metric-Driven Agent-Driven Development (ADD)
@@ -31,4 +99,6 @@ framework, implementing the full technical specification in
   (§4.1) plus failure-mode and monitoring tests (§4.2, §5).
 - Packaging metadata (`pyproject.toml`), MIT license, and this changelog.
 
+[1.5.0]: https://github.com/harlan/clify/releases/tag/v1.5.0
+[1.6.0]: https://github.com/harlan/clify/releases/tag/v1.6.0
 [1.4.2]: https://github.com/harlan/clify/releases/tag/v1.4.2

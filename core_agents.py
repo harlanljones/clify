@@ -50,9 +50,20 @@ class ScopeGuard:
 
     SIMILARITY_THRESHOLD = 0.30  # bag-of-words cosine; prod uses embeddings @ 0.82
 
-    def __init__(self, allowed_scopes, prohibited_scopes):
+    def __init__(self, allowed_scopes, prohibited_scopes,
+                 allowed_tokens=None, prohibited_tokens=None,
+                 scope_reference=None):
         self.allowed_scopes = set(allowed_scopes)
         self.prohibited_scopes = set(prohibited_scopes)
+        # Per-agent keyword tables; default to module globals for
+        # backward compatibility with existing manifests.
+        self.allowed_tokens = dict(ALLOWED_TOKENS if allowed_tokens is None
+                                   else allowed_tokens)
+        self.prohibited_tokens = dict(PROHIBITED_TOKENS
+                                      if prohibited_tokens is None
+                                      else prohibited_tokens)
+        # Pluggable similarity reference (default: legacy constant).
+        self.scope_reference = scope_reference or _SCOPE_REFERENCE
 
     @staticmethod
     def _tokenize(text):
@@ -65,20 +76,25 @@ class ScopeGuard:
         norm = (len(tokens_a) ** 0.5) * (len(tokens_b) ** 0.5)
         return dot / norm if norm else 0.0
 
-    def is_authorized(self, task: str) -> bool:
+    def is_authorized(self, task: str, similarity_text: str = None) -> bool:
         tokens = self._tokenize(task)
         # 1) Keyword/token whitelisting: block lateral movement into
         #    prohibited operational zones.
         for token in tokens:
-            scope = PROHIBITED_TOKENS.get(token)
+            scope = self.prohibited_tokens.get(token)
             if scope and scope in self.prohibited_scopes:
                 return False
         # 2) Must touch at least one allowed scope entity.
         hits_allowed = any(
-            ALLOWED_TOKENS.get(t) in self.allowed_scopes for t in tokens
+            self.allowed_tokens.get(t) in self.allowed_scopes for t in tokens
         )
         # 3) Semantic similarity gate against descriptive scope embedding.
-        similarity = self._cosine_similarity(tokens, self._tokenize(_SCOPE_REFERENCE))
+        # Callers may pass `similarity_text` to score a stripped-down form of
+        # the instruction (e.g. dropping a free-form argument like a playlist
+        # name) so open-vocabulary arguments don't dilute the match.
+        similarity = self._cosine_similarity(
+            self._tokenize(similarity_text if similarity_text is not None else task),
+            self._tokenize(self.scope_reference))
         return hits_allowed and similarity >= self.SIMILARITY_THRESHOLD
 
 
@@ -94,11 +110,21 @@ class BaseAgent:
     """Agent Boundary Core: Scope Guard + Execution Unit + Metric Evaluator."""
 
     def __init__(self, identity, tools, configured_scopes,
-                 prohibited_scopes=None, max_iterations=MAX_ITERATION_DEPTH):
+                 prohibited_scopes=None, max_iterations=MAX_ITERATION_DEPTH,
+                 manifest=None):
         self.identity = identity
         self.tools = list(tools)
         self.configured_scopes = list(configured_scopes)
-        self.guard = ScopeGuard(configured_scopes, prohibited_scopes or [])
+        manifest = manifest or {}
+        self.manifest = dict(manifest)
+        token_tables = manifest.get("token_tables", {})
+        self.guard = ScopeGuard(
+            configured_scopes,
+            prohibited_scopes or [],
+            allowed_tokens=token_tables.get("allowed_tokens"),
+            prohibited_tokens=token_tables.get("prohibited_tokens"),
+            scope_reference=manifest.get("description"),
+        )
         self.max_iterations = max_iterations
 
     def is_task_authorized(self, task: str) -> bool:
