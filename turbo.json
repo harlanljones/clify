@@ -1,0 +1,31 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["bin/**", "dist/**", "build/**", "cliamp"]
+    },
+    "test": {
+      "dependsOn": ["build"],
+      "inputs": ["**/*.go", "**/*.py", "tests/**", "go.mod", "pyproject.toml"],
+      "cache": true
+    },
+    "check": {
+      "dependsOn": ["^check"],
+      "inputs": ["**/*.go", "**/*.py", "Makefile", "pyproject.toml"],
+      "cache": true
+    },
+    "lint": {
+      "inputs": ["**/*.go", "**/*.py"],
+      "cache": true
+    },
+    "clean": {
+      "cache": false
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

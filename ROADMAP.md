@@ -1,12 +1,25 @@
-# Development Roadmap — cliamp Integration
+# Development Roadmap — clify Monorepo (`cliamp-clify` & `clify` CLI)
 
-Agent-driven development plan for integrating [cliamp](https://github.com/bjarneo/cliamp)
-(retro terminal music player) into the clify ADD framework. Every phase
+Agent-driven development plan for the `clify` Turborepo monorepo, uniting
+[cliamp-clify](cliamp-clify/) (retro terminal music player fork with Spotify superpowers)
+and [clify](packages/clify/) (companion CLI and Metric-Driven ADD framework). Every phase
 follows the three-stage TDD lifecycle mandated by [AGENTS.md](AGENTS.md) §4
-(Red → Green → Refactor), and every shipped agent must pass the full
+(Red → Green → Refactor), and every shipped agent and binary must pass the full
 lifecycle verification pipeline before it is considered deployed.
 
 **Status legend:** 🔲 not started · 🚧 in progress · ✅ done
+
+---
+
+## Monorepo Architecture Milestone — Turborepo Integration ✅
+
+> **Done:** Repository transformed into a polyglot Turborepo monorepo managed by
+> `pnpm` and `turbo`.
+> - Root orchestration: `turbo.json`, `package.json`, `pnpm-workspace.yaml`.
+> - Workspaces: `cliamp-clify` (Go 1.26+) and `packages/clify` (Python 3.10+).
+> - Unified build & test pipelines: `pnpm build`, `pnpm test`, `pnpm check` running
+>   Go and Python suites concurrently with full build artifact caching.
+
 
 ---
 

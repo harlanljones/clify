@@ -9,6 +9,7 @@ SECTION_LABELS = (
     ("recently_played", "Recently Played"),
     ("library", "Library"),
     ("your_playlists", "Your Playlists"),
+    ("made_for_you", "Made For You"),
 )
 
 

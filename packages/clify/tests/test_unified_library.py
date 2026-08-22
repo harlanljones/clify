@@ -59,6 +59,16 @@ def providers():
     spotify.get_user_playlists.return_value = {
         "items": [{"id": "p1", "name": "Discoveries"}], "total": 1
     }
+    spotify.get_generated_playlists.return_value = {
+        "items": [{
+            "id": "g1",
+            "name": "Daily Mix 1",
+            "owner_id": "spotify",
+            "generated": True,
+            "kind": "daily_mix",
+        }],
+        "total": 1,
+    }
     return cliamp, spotify
 
 
@@ -120,6 +130,60 @@ def test_library_sections_have_fixed_order(providers):
     assert result["failed_sources"] == []
 
 
+def test_library_sections_include_made_for_you(providers):
+    client = UnifiedLibraryClient(*providers)
+
+    result = client.get_library_sections()
+
+    assert list(result) == [
+        "recently_played", "library", "your_playlists", "made_for_you",
+        "partial", "failed_sources",
+    ]
+    assert result["made_for_you"] == [{
+        "id": "g1",
+        "name": "Daily Mix 1",
+        "owner_id": "spotify",
+        "generated": True,
+        "kind": "daily_mix",
+    }]
+    assert result["partial"] is False
+    assert result["failed_sources"] == []
+
+
+def test_missing_generated_capability_is_absent_not_failed(providers):
+    cliamp, spotify = providers
+    del spotify.get_generated_playlists
+
+    result = UnifiedLibraryClient(cliamp, spotify).get_library_sections()
+
+    assert "made_for_you" not in result
+    assert result["partial"] is False
+    assert result["failed_sources"] == []
+
+
+def test_generated_playlist_failure_is_isolated(providers):
+    cliamp, spotify = providers
+    spotify.get_generated_playlists.side_effect = RuntimeError("offline")
+
+    result = UnifiedLibraryClient(cliamp, spotify).get_library_sections()
+
+    assert result["made_for_you"] == []
+    assert result["library"] == ["Road Trip", "Focus"]
+    assert result["your_playlists"] == [{"id": "p1", "name": "Discoveries"}]
+    assert result["partial"] is True
+    assert result["failed_sources"] == ["spotify.generated"]
+
+
+def test_generated_malformed_payload_is_tolerated(providers):
+    cliamp, spotify = providers
+    spotify.get_generated_playlists.return_value = None
+
+    result = UnifiedLibraryClient(cliamp, spotify).get_library_sections()
+
+    assert result["made_for_you"] == []
+    assert result["partial"] is False
+
+
 def test_provider_failure_returns_other_source_and_metadata(providers):
     cliamp, spotify = providers
     spotify.get_recently_played.side_effect = RuntimeError("expired token")
@@ -161,6 +225,20 @@ class TestUnifiedLibraryAgent:
         ]
         assert recent["status"] == "SUCCESS"
         assert isinstance(recent["data"], list)
+
+    def test_mix_and_radio_vocabulary_authorization(self, providers):
+        agent = UnifiedLibraryAgent(tools=list(providers))
+        assert agent.is_task_authorized("Show my daily mixes.") is True
+        assert agent.is_task_authorized("List my discover weekly.") is True
+        assert agent.is_task_authorized("Open my discover weekly radio") is True
+        # Prohibited playback tokens win over in-vocabulary library terms.
+        assert agent.is_task_authorized("Skip this song in my daily mix.") is False
+
+    def test_mix_queries_route_to_library_sections(self, providers):
+        agent = UnifiedLibraryAgent(tools=list(providers))
+        result = agent.process_instruction("Show my daily mixes")
+        assert result["status"] == "SUCCESS"
+        assert "made_for_you" in result["data"]
 
     @patch("time.time", side_effect=[100.0, 101.2])
     def test_base_agent_sla_contract(self, _mock_time, providers):

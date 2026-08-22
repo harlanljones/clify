@@ -9,6 +9,7 @@ SECTIONS = {
     "recently_played": [{"title": "Newest", "source": "spotify"}],
     "library": [{"name": "Liked Songs", "source": "spotify"}],
     "your_playlists": ["Local Mix"],
+    "made_for_you": [{"id": "g1", "name": "Daily Mix 1", "generated": True}],
     "partial": False,
     "failed_sources": [],
 }
@@ -27,7 +28,9 @@ def test_library_text_has_fixed_section_order():
     assert code == 0 and not error
     assert output.index("Recently Played") < output.index("Library")
     assert output.index("Library") < output.index("Your Playlists")
+    assert output.index("Your Playlists") < output.index("Made For You")
     assert "Newest [spotify]" in output
+    assert "Daily Mix 1" in output
 
 
 def test_library_json_preserves_insertion_order():
@@ -35,8 +38,8 @@ def test_library_json_preserves_insertion_order():
     client.get_library_sections.return_value = SECTIONS
     code, output, _ = run_cli(["library", "--json"], unified_client=client)
     assert code == 0
-    assert list(json.loads(output))[:3] == [
-        "recently_played", "library", "your_playlists"
+    assert list(json.loads(output))[:4] == [
+        "recently_played", "library", "your_playlists", "made_for_you"
     ]
 
 

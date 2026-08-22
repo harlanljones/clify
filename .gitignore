@@ -18,3 +18,8 @@ venv/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# Node / Turborepo
+node_modules/
+.turbo/
+

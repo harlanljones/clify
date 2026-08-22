@@ -1,236 +1,245 @@
-# clify — Metric-Driven Agent-Driven Development (ADD) Framework
+# clify Monorepo
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
+[![Turborepo](https://img.shields.io/badge/monorepo-turborepo-000000.svg)](https://turbo.build/repo)
+[![Go 1.26+](https://img.shields.io/badge/go-1.26%2B-00ADD8.svg)](cliamp-clify/go.mod)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](packages/clify/pyproject.toml)
 
-`clify` is a reference implementation of the Metric-Driven Agent-Driven
-Development (ADD) technical specification in [AGENTS.md](AGENTS.md). It
-decouples autonomous agents into specialized, single-responsibility units
-whose control, guardrails, and evaluations are managed by a centralized
-framework engine rather than the agents themselves.
+The `clify` monorepo unites two complementary terminal music products:
 
-## Features
+1. **[`cliamp-clify`](cliamp-clify/)** — A feature-rich fork of [cliamp](https://github.com/bjarneo/cliamp) (retro Winamp-inspired terminal music player in Go) with native **Spotify superpowers**: Made For You mix resolution, Spotify-derived Recently Played albums & playlists, Followed playlists viewport/filter fixes, headless `spotify login`, and default Spotify launch.
+2. **[`clify` CLI & ADD Framework](packages/clify/)** — A complementary Python CLI tool and reference implementation of the Metric-Driven Agent-Driven Development ([AGENTS.md](AGENTS.md)) specification, extending `cliamp-clify` with cross-provider library unification, natural-language playback agents, PKCE OAuth, and deterministic SLA guardrails.
 
-- **Scope boundary enforcement (§2.2)** — deterministic pre-LLM gating via
-  keyword/token whitelisting and semantic similarity scoring; prohibited
-  operations (e.g. `playback.control`, `user.billing`) are rejected before
-  any tool runs.
-- **SLA telemetry (§3)** — every execution reports latency, cost, token
-  usage, confidence, and SLA compliance. Targets: latency ≤ 2.5s,
-  cost ≤ $0.02/execution, confidence ≥ 0.90.
-- **Safe failure modes (§4.2)** — tool errors return
-  `{"status": "TOOL_ERROR", "retry_allowed": true}`; self-correction is
-  capped at 3 iterations; prompts breaching 85% of the context window are
-  intercepted by the orchestrator.
-- **Runtime monitoring (§5)** — a central time-series registry tracks
-  sliding-window latency, cost per task, and validation failure rate with
-  alerting thresholds and mitigating actions.
-- **TDD lifecycle verification (§4)** — a three-stage (Red → Green →
-  Refactor) pytest pipeline that an agent must pass before deployment.
+---
 
-## Installation
+## System Architecture
 
-```bash
-pip install clify
+```mermaid
+graph TD
+    subgraph Monorepo ["Turborepo Root (turbo.json)"]
+        direction TB
+
+        subgraph Product1 ["cliamp-clify (Go / TUI Player & Daemon)"]
+            TUI["Winamp-Style Terminal UI<br/>(Bubbletea & Lip Gloss)"]
+            Engine["Audio Engine & Providers<br/>(Beep & go-librespot)"]
+            ForkMods["Spotify Superpowers:<br/>• Made For You Mix Resolution<br/>• Spotify-derived Recently Played<br/>• Followed Playlists Viewport Fix<br/>• Headless 'spotify login'"]
+            IPC["IPC Socket Server<br/>(cliamp.history.unified/1)"]
+            TUI --- Engine
+            Engine --- ForkMods
+            Engine --- IPC
+        end
+
+        subgraph Product2 ["clify (Python / CLI & Agents)"]
+            CLI["clify CLI<br/>(library, recent, play, status, spotify login)"]
+            Agents["ADD Agents & Orchestrator<br/>(CliampPlaybackAgent, LibrarySyncAgent)"]
+            SpotClient["Spotify Web API Client<br/>(PKCE OAuth, Rate Limiting, Cache)"]
+            UnifyLib["Unified Library Layer<br/>(Cross-Provider Merging & Dedup)"]
+            CLI --- Agents
+            CLI --- UnifyLib
+            UnifyLib --- SpotClient
+        end
+
+        IPC <== "Unix Socket / Subprocess CLI" ==> UnifyLib
+        IPC <== "Playback Control Verbs" ==> Agents
+    end
 ```
 
-Or from source, using [uv](https://docs.astral.sh/uv/):
+---
+
+## Products & Features
+
+### 1. `cliamp-clify` (Retro Terminal Music Player Fork)
+- **Made For You Mixes:** Resolves Spotify-generated algorithmic playlists (Daily Mixes, Discover Weekly, Release Radar, Daylist, On Repeat, Repeat Rewind) via `go-librespot` context-resolution (`/context-resolve/v1/{uri}`), overcoming Spotify's November 2024 Web API restrictions.
+- **Spotify-derived Recently Played:** Dynamic album and playlist rows derived from recent listening context, deduplicated by canonical URI with session caching.
+- **Default Spotify Provider:** Opens straight to the Spotify browser on launch with clean queue state.
+- **Followed Playlists Viewport Fixes:** Header-aware scroll calculation keeps bottom rows visible; `/` filter mode preserves section headers and result count.
+- **Headless `spotify login`:** Built-in PKCE login command authorizing the player without starting audio playback.
+- **Versioned IPC Contract:** Exposes `cliamp.history.unified/1` over Unix socket for companion tools.
+
+### 2. `clify` (Extended Spotify CLI & ADD Framework)
+- **Unified Library Querying (`clify library`):** Merges local cliamp listening history and Spotify Web API library into a structured, sorted view (Recently Played → Library → Your Playlists → Made For You).
+- **Cross-Provider History (`clify recent`):** Timestamped, deduplicated song history across all active providers with graceful provider outage isolation (`partial: true`).
+- **Natural Language Playback Control (`clify play`):** Agent-orchestrated command routing with strict scope guardrails (§2.2) and post-action verification.
+- **Headless PKCE OAuth (`clify spotify login`):** Mode-0600 token storage (`~/.config/clify/spotify.json`) with automated token refresh and credential redaction.
+- **Metric-Driven ADD Guardrails:** Deterministic SLAs on every execution (latency ≤ 2.5s, cost ≤ $0.02, confidence ≥ 0.90), safe failure modes, and runtime time-series monitoring.
+
+---
+
+## Monorepo Quickstart (Turborepo)
+
+Prerequisites: Node.js ≥ 18, [pnpm](https://pnpm.io/) ≥ 9, Go ≥ 1.26, Python ≥ 3.10.
 
 ```bash
+# Clone the monorepo
 git clone https://github.com/harlan/clify.git
 cd clify
-uv venv .venv && uv pip install -e ".[test]" --python .venv/bin/python
+
+# Install monorepo dependencies (Turborepo)
+pnpm install
+
+# Build all targets (cliamp-clify Go binary + clify Python package)
+pnpm build
+
+# Run all test suites in parallel with caching (Go tests + Pytest suite)
+pnpm test
+
+# Run code quality and verification checks across all packages
+pnpm check
 ```
 
-Requires Python ≥ 3.10. The only runtime dependency is the standard
-library; `pytest` is needed for the test suite.
+---
 
-## Quickstart
+## Product Quickstarts
 
-```python
-from core_agents import LibrarySyncAgent
-from orchestrator import Orchestrator
-from monitoring import TelemetryRegistry
+### Using `cliamp-clify` (Terminal Music Player)
 
-class SpotifyClient:  # substitute a real SDK client
-    def get_user_playlists(self):
-        return {"items": [{"name": "Synthwave Mix", "id": "4aV8"}], "total": 1}
-    def get_recently_played(self):
-        return {"items": [], "total": 0}
+1. **Build and install the player binary:**
+   ```bash
+   cd cliamp-clify
+   make build
+   make install   # installs to ~/.local/bin/cliamp
+   ```
 
-agent = LibrarySyncAgent(
-    identity="LibrarySyncAgent",
-    tools=[SpotifyClient()],
-    configured_scopes=["library.read", "playlists.read"],
-)
+2. **Headless Spotify sign-in (PKCE OAuth):**
+   ```bash
+   cliamp spotify login --client-id <YOUR_SPOTIFY_CLIENT_ID>
+   ```
 
-orchestrator = Orchestrator(agent)
-registry = TelemetryRegistry()
+3. **Launch the player:**
+   ```bash
+   cliamp         # opens Winamp-style TUI with Spotify provider focused
+   ```
 
-telemetry = orchestrator.run("Fetch my playlists.")
-registry.record(telemetry)
-
-print(telemetry["response"])                  # {'status': 'SUCCESS', 'data': [...]}
-print(telemetry["metrics"]["sla_compliant"])  # True
-```
-
-Out-of-scope tasks are rejected by the scope guard before any tool runs:
-
-```python
-agent.is_task_authorized("Skip this song and increase the volume.")  # False
-```
-
-## Using clify with cliamp
-
-As of v1.5.0, clify ships a set of agents for
-[cliamp](https://github.com/bjarneo/cliamp) (retro terminal music player),
-integrated through a thin subprocess wrapper per the transport decision in
-[ROADMAP.md](ROADMAP.md) Phase 0 and the schemas in
-[docs/cliamp_schemas.md](docs/cliamp_schemas.md).
-
-Prerequisites:
-
-1. Install cliamp ≥ v1.63.2 so the `cliamp` binary is on `PATH`.
-2. Start the daemon yourself — the framework is fail-fast and never
-   auto-spawns it (playback mutations return
-   `{"status": "TOOL_ERROR", "retry_allowed": false}` when no daemon runs):
-
+4. **Run headless background daemon:**
    ```bash
    cliamp --daemon &
    ```
 
-Quickstart:
+### Using `clify` CLI & Agent Framework
 
-```python
-from cliamp_agents import CliampQueryAgent       # read-only: playlists, history, status
-from cliamp_playback import CliampPlaybackAgent  # the only playback.control agent
-from orchestrator import Orchestrator
-from monitoring import TelemetryRegistry
+1. **Install the Python package:**
+   ```bash
+   pip install -e packages/clify
+   ```
 
-query = CliampQueryAgent()        # tools default to CliampClient()
-playback = CliampPlaybackAgent()  # tools default to CliampController()
-orchestrator = Orchestrator([playback, query])  # scope-based routing
-registry = TelemetryRegistry()
+2. **Authenticate with Spotify Web API:**
+   ```bash
+   clify spotify login --client-id <YOUR_SPOTIFY_CLIENT_ID>
+   ```
 
-t = orchestrator.run("what's currently playing?")
-registry.record(t)
-print(t["response"])                    # {'status': 'SUCCESS', 'data': [...]}
-print(t["metrics"]["sla_compliant"])    # True
+3. **Query library and control playback:**
+   ```bash
+   # Unified library overview
+   clify library
 
-t = orchestrator.run("pause the music")  # routed to cliamp_playback_agent
-print(t["response"]["data"][0]["state"])  # 'paused' (post-command verification)
+   # Machine-readable JSON output
+   clify library --json
+
+   # Merged listening history
+   clify recent --limit 20
+
+   # Inspect current player status
+   clify status
+
+   # Natural-language playback instruction via ADD agent orchestrator
+   clify play "toggle playback"
+   ```
+
+4. **Programmatic Python API:**
+   ```python
+   from cliamp_agents import CliampQueryAgent
+   from cliamp_playback import CliampPlaybackAgent
+   from orchestrator import Orchestrator
+   from monitoring import TelemetryRegistry
+
+   query = CliampQueryAgent()        # read-only: playlists, history, status
+   playback = CliampPlaybackAgent()  # playback.control agent
+   orchestrator = Orchestrator([playback, query])
+   registry = TelemetryRegistry()
+
+   telemetry = orchestrator.run("what's currently playing?")
+   registry.record(telemetry)
+   print(telemetry["response"])                  # {'status': 'SUCCESS', 'data': [...]}
+   print(telemetry["metrics"]["sla_compliant"])  # True
+   ```
+
+---
+
+## Repository Layout
+
+```
+.
+├── cliamp-clify/               # Product 1: Go TUI music player fork
+│   ├── cmd/                    # CLI commands (spotify login, history, etc.)
+│   ├── external/spotify/       # Spotify provider, recent history, Made For You resolution
+│   ├── ipc/                    # Versioned Unix socket IPC server
+│   ├── ui/                     # Bubbletea & Lip Gloss Winamp-style interface
+│   ├── Makefile                # Go build, test, and vet targets
+│   └── package.json            # Turborepo workspace bridge
+│
+├── packages/clify/             # Product 2: Python CLI & ADD framework
+│   ├── clify_cli.py            # CLI entrypoint (library, recent, play, status)
+│   ├── spotify_client.py       # Spotify Web API client (PKCE, rate limits, caching)
+│   ├── spotify_auth.py         # PKCE OAuth login server & token storage
+│   ├── unified_library.py      # Cross-provider aggregator & deduplicator
+│   ├── cliamp_client.py        # Subprocess wrapper for cliamp JSON commands
+│   ├── cliamp_playback.py      # Scoped playback control agent
+│   ├── core_agents.py          # ScopeGuard, BaseAgent, LibrarySyncAgent
+│   ├── orchestrator.py         # ADD orchestrator with token budgeting
+│   ├── monitoring.py           # TelemetryRegistry time-series monitoring
+│   ├── tests/                  # 200+ unit, contract, and lifecycle tests
+│   ├── pyproject.toml          # Python package configuration
+│   └── package.json            # Turborepo workspace bridge
+│
+├── docs/                       # Specifications, schemas, and fork plans
+│   ├── cliamp_schemas.md       # Pinned cliamp JSON schemas & failure contract
+│   ├── spotify_schemas.md      # Pinned Spotify Web API contracts
+│   ├── cliamp_clify_fork_plan.md # Initial fork specification
+│   └── cliamp_clify_v2_plan.md # v2 Made For You & Recently Played plan
+│
+├── .github/workflows/          # CI/CD pipelines
+│   └── test.yml                # Turborepo multi-suite CI matrix
+├── pnpm-workspace.yaml         # Turborepo workspace definition
+├── turbo.json                  # Turborepo pipeline configuration
+├── AGENTS.md                   # Metric-Driven ADD Technical Specification
+├── ROADMAP.md                  # Unified development roadmap
+├── CHANGELOG.md                # Project changelog
+└── package.json                # Root Turborepo manifest
 ```
 
-Read-only instructions (`playlist`, `history`, `status`) are routed to
-`cliamp_query_agent`; unambiguous playback verbs (`pause`, `play`, `skip`,
-`volume`, …) to `cliamp_playback_agent`. Destructive or ambiguous mutations
-are rejected at the scope boundary before any subprocess runs. To run the
-live integration tests, set `CLIAMP_INTEGRATION=1` (see the docstring in
-`tests/test_cliamp_integration.py`).
+---
 
-## Unified library CLI
+## Guardrails & Metric-Driven ADD Compliance
 
-v1.6.0 adds a real Spotify Web API client and a provider-independent command
-surface. Create a Spotify Developer app with
-`http://127.0.0.1:8888/callback`, select Web API, and run the PKCE login:
+Every agent operation in `clify` satisfies the strict boundaries of [AGENTS.md](AGENTS.md):
+
+- **Scope boundary enforcement (§2.2):** Prohibited operations (e.g. `playback.control`, `user.billing`) are rejected deterministically before any tool execution.
+- **SLA Telemetry (§3):** Every execution tracks latency ($L \le 2.5s$), cost ($C_x \le \$0.02$), token efficiency, and semantic accuracy ($A_s \ge 0.90$).
+- **Safe Failure Modes (§4.2):** Tool errors return `{"status": "TOOL_ERROR", "retry_allowed": true}`; self-correction loops are capped at 3 iterations.
+- **Runtime Monitoring (§5):** Sliding-window latency, cost accumulators, and validation failure tracking with automated mitigation alerts.
+- **Three-Stage TDD Lifecycle (§4):** All agents pass Red $\rightarrow$ Green $\rightarrow$ Refactor pipeline verification before release.
+
+---
+
+## Running Test Suites
+
+Run all tests across both Go and Python workspaces with Turborepo caching:
 
 ```bash
-pip install -e .
-clify spotify login
+pnpm test
 ```
 
-The command asks only for the public Client ID, opens Spotify authorization,
-and saves the refresh token to `~/.config/clify/spotify.json` with mode 0600.
-It never needs or stores the Client Secret. The token requests only
-`playlist-read-private` and `user-read-recently-played`. Credentials are
-redacted from errors and telemetry. Then use:
+Or run package-specific test suites directly:
 
 ```bash
-clify library                 # Recently Played, Library, Your Playlists
-clify library --json          # same fixed order, machine-readable
-clify recent --limit 20
-clify play "toggle playback"
-clify status
+# Go test suite (cliamp-clify)
+cd cliamp-clify && go test ./...
+
+# Python test suite (clify)
+cd packages/clify && pytest
 ```
 
-The library command merges local cliamp history with Spotify history, sorts
-by `played_at`, tags each item with its source, and deduplicates the same
-track across providers. A provider outage returns healthy data with
-`partial: true` and `failed_sources` metadata. Spotify response fields pinned
-by contract tests are documented in
-[docs/spotify_schemas.md](docs/spotify_schemas.md).
-
-cliamp's Lua plugin API does not expose an API for modifying the built-in
-Spotify browser tree, so clify cannot safely inject a passive Recently Played
-sidebar section into the closed TUI. The supported unified surface is
-`clify library`.
-
-## Repository layout
-
-| File | Spec Section | Purpose |
-|---|---|---|
-| `core_agents.py` | §2, §3, §4 | Agent Boundary Core: `ScopeGuard` (keyword whitelisting + similarity gating), `BaseAgent` (execution unit + SLA metric evaluator), `LibrarySyncAgent` (read-only Spotify agent) |
-| `orchestrator.py` | §1, §4.2 | Task validation, context-overflow interception at 85% of the token window, telemetry-returning dispatch |
-| `monitoring.py` | §5 | `TelemetryRegistry`: sliding-window latency, cost accumulator, validation failure rate with alerting thresholds |
-| `agent_manifest.json` | §2.1 | Scope contract for `spotify_query_agent` |
-| `tests/test_lifecycle.py` | §4.1, §4.2, §5 | Three-stage TDD lifecycle tests plus failure-mode and monitoring tests |
-| `cliamp_client.py` | §4.2 | `CliampClient`: thin subprocess wrapper around `cliamp --json` commands with the structured `ToolError` hierarchy |
-| `cliamp_agents.py` | §2.1, §2.2 | `CliampQueryAgent`: read-only cliamp agent (playlists, history, status) driven by `agent_manifest.cliamp.json` |
-| `cliamp_controller.py` | §4.2 | `CliampController`: mutation-capable IPC verb wrapper with fail-fast daemon precondition |
-| `cliamp_playback.py` | §2.2, §3.3 | `CliampPlaybackAgent`: the only `playback.control` agent, with unambiguous verb routing and a post-command verification loop |
-| `agent_manifest.cliamp.json` / `agent_manifest.cliamp_playback.json` | §2.1 | Scope contracts for the cliamp agents |
-| `spotify_client.py` | §4.2 | Real Spotify Web API client with refresh OAuth, pagination, rate-limit handling, and short-lived caching |
-| `spotify_auth.py` | §4.2 | Interactive PKCE login with state validation, loopback callback, and mode-0600 credential storage |
-| `unified_library.py` / `agent_manifest.cliamp_library.json` | §2.1, §4.2 | Cross-provider aggregation with fixed ordering and failure isolation |
-| `clify_cli.py` | §1 | Installed CLI for unified library, recent history, playback, and status |
-| `docs/cliamp_schemas.md` | §4 | Pinned cliamp JSON schemas (v1.63.2) and subprocess failure-mode contract |
-| `docs/spotify_schemas.md` | §4 | Pinned Spotify response fields and OAuth/error contract |
-| `tests/test_cliamp_contract.py` | §4, §5 | Contract tests pinning cliamp JSON schemas plus §5 alert verification under fault injection |
-| `tests/test_cliamp_integration.py` | §4 | Live-daemon integration tests (`@pytest.mark.integration`, gated by `CLIAMP_INTEGRATION`) |
-
-## Running the tests
-
-```bash
-.venv/bin/python -m pytest -v
-```
-
-The suite implements the spec's TDD lifecycle verification pipeline:
-
-1. **Stage 1 (scope boundary):** asserts in-scope tasks are authorized and
-   prohibited tasks are rejected.
-2. **Stage 2 (schema conformance):** asserts the correct tool is invoked
-   exactly once and the structured payload contract holds.
-3. **Stage 3 (SLA compliance):** asserts latency, cost, and confidence
-   metrics stay within guardrails.
-
-## Guardrails enforced
-
-- **Scope boundary (§2.2):** prohibited verbs (skip/queue/volume/billing…)
-  are rejected before any tool runs; tasks must hit an allowed scope entity
-  and clear the similarity threshold.
-- **Failure modes (§4.2):** tool errors return
-  `{"status": "TOOL_ERROR", "retry_allowed": true}`; self-correction is
-  capped at 3 iterations (`MaxIterationExceeded`).
-- **Context overflow (§4.2):** the orchestrator intercepts prompts whose
-  estimated token count exceeds 85% of the context window
-  (`ContextOverflowError`).
-- **SLAs (§3):** latency ≤ 2.5s, cost ≤ $0.02/execution, confidence ≥ 0.90 —
-  reported in every `execute_monitored_loop` telemetry payload.
-- **Monitoring alerts (§5):** sliding-window average latency > 3.0s, cost
-  per task > $0.05, or validation failure rate > 2% raise alerts with the
-  spec-defined mitigating actions.
-
-## Publishing
-
-```bash
-uv pip install build --python .venv/bin/python
-.venv/bin/python -m build
-# then upload dist/* with twine or: uv publish
-```
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md).
+---
 
 ## License
 

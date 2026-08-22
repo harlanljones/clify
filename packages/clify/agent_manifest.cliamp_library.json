@@ -1,7 +1,7 @@
 {
   "agent_id": "cliamp_library_agent",
-  "version": "1.0.0",
-  "description": "Show a unified library of playlists and recently played history from local cliamp and Spotify sources.",
+  "version": "1.1.0",
+  "description": "Show a unified library of playlists, daily mixes, radios, and recently played history from local cliamp and Spotify sources, including Spotify-generated Discover Weekly recommendations.",
   "allowed_scopes": ["playlists.read", "history.read"],
   "prohibited_scopes": ["playback.control", "playlists.write", "player.config"],
   "required_tools": ["CliampClient", "SpotifyClient"],
@@ -10,6 +10,11 @@
       "playlist": "playlists.read",
       "playlists": "playlists.read",
       "library": "playlists.read",
+      "mix": "playlists.read",
+      "mixes": "playlists.read",
+      "radio": "playlists.read",
+      "radios": "playlists.read",
+      "discover": "playlists.read",
       "history": "history.read",
       "recently": "history.read",
       "played": "history.read"

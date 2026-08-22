@@ -1,0 +1,13 @@
+{
+  "name": "clify",
+  "version": "1.6.0",
+  "private": true,
+  "description": "Metric-driven ADD framework and complementary Spotify/cliamp CLI",
+  "scripts": {
+    "build": "python3 -m pip install -e .",
+    "test": "pytest",
+    "check": "pytest -m 'not integration'",
+    "lint": "python3 -m py_compile *.py",
+    "clean": "rm -rf build dist *.egg-info .pytest_cache"
+  }
+}

@@ -9,11 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Turborepo Monorepo Architecture:** Converted the repository into a high-performance
+  polyglot Turborepo monorepo with `pnpm` workspaces, unifying `cliamp-clify` (Go)
+  and `clify` (Python) with cached build, test, and check pipelines (`pnpm build`,
+  `pnpm test`, `pnpm check`).
+- **Dual-Product Branding & Documentation:** Repositioned the repository around its two
+  primary complementary products: `cliamp-clify` (retro terminal music player with
+  native Spotify mixes & recently played) and `clify` CLI (extended Spotify querying,
+  natural-language playback agents, and ADD framework).
 - Native `cliamp-clify` fork integration with a merged Recently Played section,
   30-second cache, independent source degradation, and normal playlist loading.
 - Versioned `cliamp.history.unified/1` IPC/CLI contract. clify prefers this
   capability and remains compatible with stock cliamp through its existing
   direct merge fallback.
+- `SpotifyClient.get_generated_playlists()` and
+  `SpotifyClient.get_playlist_tracks()` surfacing Spotify's algorithmic
+  playlists (Daily Mix, Discover Weekly, Release Radar, On Repeat, Repeat
+  Rewind, Daylist) with a `kind` classification, a documented non-error
+  payload for playlists made unbrowsable by Spotify's November 2024 Web API
+  restriction, and recorded contract tests pinning those wire shapes ahead of
+  the upcoming Made For You section. Schemas are pinned in
+  [docs/spotify_schemas.md](docs/spotify_schemas.md).
+
 
 ## [1.6.0] - 2026-08-21
 

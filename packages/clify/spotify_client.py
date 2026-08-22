@@ -24,6 +24,41 @@ API_BASE_URL = "https://api.spotify.com/v1"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 HTTP_TIMEOUT_SECONDS = 2.0
 PLAYLIST_CACHE_TTL_SECONDS = 30.0
+GENERATED_ID_PREFIX = "37i9dQZF1E"
+GENERATED_PLAYLIST_KINDS = (
+    ("daily mix", "daily_mix"),
+    ("discover weekly", "discover_weekly"),
+    ("release radar", "release_radar"),
+    ("on repeat", "on_repeat"),
+    ("repeat rewind", "repeat_rewind"),
+    ("daylist", "daylist"),
+)
+
+
+def _generated_owner_id(item: Mapping[str, Any]) -> str:
+    owner = item.get("owner")
+    owner_id = owner.get("id") if isinstance(owner, dict) else None
+    return owner_id if isinstance(owner_id, str) else ""
+
+
+def _is_generated_candidate(item: Any) -> bool:
+    if not isinstance(item, dict):
+        return False
+    if _generated_owner_id(item) == "spotify":
+        return True
+    for key in ("id", "uri"):
+        value = item.get(key)
+        if isinstance(value, str) and value.startswith(GENERATED_ID_PREFIX):
+            return True
+    return False
+
+
+def _generated_kind(name: Any) -> str:
+    lowered = name.lower() if isinstance(name, str) else ""
+    for substring, kind in GENERATED_PLAYLIST_KINDS:
+        if substring in lowered:
+            return kind
+    return "other"
 
 
 class SpotifyConfigurationError(ToolError):
@@ -245,6 +280,66 @@ class SpotifyClient:
         result = {"items": items, "total": len(items)}
         self._playlist_cache = (now, copy.deepcopy(result))
         return copy.deepcopy(result)
+
+    def get_generated_playlists(self) -> dict[str, Any]:
+        """Return the current user's Spotify-generated playlists.
+
+        Candidates are entries owned by ``spotify`` or carrying the
+        algorithmic ID prefix. Each item is a shallow-extended copy of the
+        cached playlist with ``owner_id``, ``generated`` and a ``kind``
+        classification added.
+        """
+        items: list[dict[str, Any]] = []
+        for item in self.get_user_playlists()["items"]:
+            if not _is_generated_candidate(item):
+                continue
+            entry = dict(item)
+            entry["owner_id"] = _generated_owner_id(item)
+            entry["generated"] = True
+            entry["kind"] = _generated_kind(entry.get("name"))
+            items.append(entry)
+        return {"items": items, "total": len(items)}
+
+    def get_playlist_tracks(self, playlist_id: str) -> dict[str, Any]:
+        """Return a playlist's tracks in one flattened ``items`` list.
+
+        Spotify-owned algorithmic playlists answer 404 since November 2024;
+        that documented outcome yields ``{"items": [], "total": 0,
+        "unbrowsable": True}`` instead of an error.
+        """
+        if (
+            not isinstance(playlist_id, str)
+            or not playlist_id
+            or "/" in playlist_id
+            or any(character.isspace() for character in playlist_id)
+        ):
+            raise SpotifyConfigurationError(
+                "playlist id must be a non-empty string without slashes or whitespace"
+            )
+
+        url: str | None = f"{API_BASE_URL}/playlists/{playlist_id}/tracks?limit=100"
+        items: list[Any] = []
+        while url:
+            try:
+                page = self._get_json(url)
+            except SpotifyHTTPError as exc:
+                if exc.status == 404:
+                    return {"items": [], "total": 0, "unbrowsable": True}
+                raise
+            page_items = page.get("items")
+            if not isinstance(page_items, list):
+                raise SpotifyParseError(
+                    "Spotify playlist-tracks response lacked an items list"
+                )
+            items.extend(page_items)
+            next_url = page.get("next")
+            if next_url is not None and not isinstance(next_url, str):
+                raise SpotifyParseError(
+                    "Spotify playlist-tracks response had an invalid next URL"
+                )
+            url = next_url
+
+        return {"items": items, "total": len(items), "unbrowsable": False}
 
     def get_recently_played(self, limit: int = 50) -> dict[str, Any]:
         """Return the current user's recently played tracks."""

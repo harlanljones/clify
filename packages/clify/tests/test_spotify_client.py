@@ -167,6 +167,120 @@ def test_missing_credentials_and_repr_never_reveal_secrets(monkeypatch):
     assert "refresh-secret" not in str(caught.value)
 
 
+def generated_playlist_source(*items):
+    return Response({"items": list(items), "next": None})
+
+
+def named_playlist(name, owner_id="spotify", playlist_id="plain123"):
+    return {
+        "name": name,
+        "id": playlist_id,
+        "uri": f"spotify:playlist:{playlist_id}",
+        "owner": {"id": owner_id},
+    }
+
+
+@pytest.mark.parametrize(
+    ("name", "kind"),
+    [
+        ("Daily Mix 3", "daily_mix"),
+        ("Discover Weekly", "discover_weekly"),
+        ("Release Radar", "release_radar"),
+        ("On Repeat", "on_repeat"),
+        ("Repeat Rewind", "repeat_rewind"),
+        ("My Daylist", "daylist"),
+        ("Road Trip 2024", "other"),
+    ],
+)
+def test_generated_playlist_kind_classification(name, kind):
+    transport = Transport(generated_playlist_source(named_playlist(name)))
+    result = client(transport).get_generated_playlists()
+    assert result["items"][0]["kind"] == kind
+
+
+def test_generated_candidates_match_owner_or_spotify_id_prefix():
+    source = generated_playlist_source(
+        named_playlist("Owned By Spotify", owner_id="spotify"),
+        named_playlist("Spotify Prefix", owner_id="listener", playlist_id="37i9dQZF1E9ab"),
+        named_playlist("Plain Playlist", owner_id="listener", playlist_id="xyz789"),
+    )
+    transport = Transport(source)
+    result = client(transport).get_generated_playlists()
+    assert [item["name"] for item in result["items"]] == [
+        "Owned By Spotify",
+        "Spotify Prefix",
+    ]
+    assert result["total"] == 2
+
+
+def test_generated_items_are_extended_copies_and_originals_untouched():
+    source = named_playlist("Daily Mix 1", owner_id={"nested": True}, playlist_id="37i9dQZF1E9ab")
+    transport = Transport(generated_playlist_source(dict(source)))
+    spotify = client(transport)
+    first = spotify.get_generated_playlists()["items"][0]
+    first["name"] = "mutated"
+    first.setdefault("extra", 1)
+    second = spotify.get_generated_playlists()["items"][0]
+    assert second["name"] == "Daily Mix 1"
+    assert "extra" not in second
+    assert source["owner"]["id"] == {"nested": True}
+    assert set(source) == {"name", "id", "uri", "owner"}
+    for item in spotify.get_user_playlists()["items"]:
+        assert "generated" not in item
+
+
+@pytest.mark.parametrize("broken", ["a-string", 42, {"no": "name"}, {"id": "x"}])
+def test_malformed_playlist_entries_are_skipped_during_filtering(broken):
+    transport = Transport(generated_playlist_source(broken, named_playlist("On Repeat")))
+    result = client(transport).get_generated_playlists()
+    assert [item["kind"] for item in result["items"]] == ["on_repeat"]
+
+
+def test_generated_playlists_share_the_user_playlist_cache():
+    times = iter([100.0, 110.0])
+    transport = Transport(
+        Response({"items": [{"name": "Daylist", "id": "abc", "owner": {"id": "spotify"}}], "next": None}),
+    )
+    spotify = client(transport, clock=lambda: next(times))
+    assert spotify.get_generated_playlists()["total"] == 1
+    assert spotify.get_generated_playlists()["total"] == 1
+    assert len(transport.calls) == 1
+
+
+def test_playlist_tracks_pagination_uses_limit_100():
+    transport = Transport(
+        Response({"items": [{"id": "one"}], "next": "https://api.spotify.com/v1/next"}),
+        Response({"items": [{"id": "two"}], "next": None}),
+    )
+    result = client(transport).get_playlist_tracks("4aV8")
+    assert result == {"items": [{"id": "one"}, {"id": "two"}], "total": 2, "unbrowsable": False}
+    assert transport.calls[0][0].full_url == (
+        "https://api.spotify.com/v1/playlists/4aV8/tracks?limit=100"
+    )
+
+
+def test_playlist_tracks_404_is_documented_unbrowsable_result():
+    transport = Transport(Response({}, status=404))
+    result = client(transport).get_playlist_tracks("37i9dQZF1E9ab")
+    assert result == {"items": [], "total": 0, "unbrowsable": True}
+
+
+@pytest.mark.parametrize("bad_id", ["", "with/slash", "with space", None, 7])
+def test_playlist_tracks_rejects_invalid_ids_before_any_http(bad_id):
+    transport = Transport()
+    with pytest.raises(SpotifyConfigurationError) as caught:
+        client(transport).get_playlist_tracks(bad_id)
+    assert caught.value.retry_allowed is False
+    assert transport.calls == []
+
+
+def test_playlist_tracks_other_http_failures_still_raise():
+    transport = Transport(Response({}, status=500))
+    with pytest.raises(SpotifyHTTPError) as caught:
+        client(transport).get_playlist_tracks("4aV8")
+    assert caught.value.status == 500
+
+
 def test_refresh_request_contains_credentials_but_errors_do_not():
     transport = Transport(Response({}, status=400))
     spotify = SpotifyClient(

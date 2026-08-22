@@ -15,7 +15,10 @@ _MANIFEST_PATH = os.path.join(
 )
 _DEFAULT_SOURCE_NAMES = ("cliamp", "spotify")
 _HISTORY_TERMS = {"history", "recently", "played"}
-_LIBRARY_TERMS = {"library", "playlist", "playlists"}
+_LIBRARY_TERMS = {
+    "library", "playlist", "playlists",
+    "mix", "mixes", "radio", "radios", "discover",
+}
 
 
 def load_manifest(path: str | None = None) -> dict:
@@ -163,14 +166,26 @@ class UnifiedLibraryClient:
         except Exception:
             playlists = []
             failures.append("spotify")
-        self.failed_sources = list(dict.fromkeys(failures))
-        return {
+        sections = {
             "recently_played": recent,
             "library": library,
             "your_playlists": playlists,
-            "partial": bool(self.failed_sources),
-            "failed_sources": list(self.failed_sources),
         }
+        generated_reader = getattr(self.spotify, "get_generated_playlists", None)
+        if callable(generated_reader):
+            try:
+                payload = generated_reader()
+                generated = (
+                    payload.get("items", []) if isinstance(payload, Mapping) else payload
+                )
+                sections["made_for_you"] = list(generated or [])
+            except Exception:
+                sections["made_for_you"] = []
+                failures.append("spotify.generated")
+        self.failed_sources = list(dict.fromkeys(failures))
+        sections["partial"] = bool(self.failed_sources)
+        sections["failed_sources"] = list(self.failed_sources)
+        return sections
 
 
 class UnifiedLibraryAgent(BaseAgent):
