@@ -4,7 +4,7 @@ requires-python = ">=3.10"
 
 [[package]]
 name = "clify"
-version = "1.6.0"
+version = "1.7.0"
 source = { editable = "." }
 
 [package.optional-dependencies]

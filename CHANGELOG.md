@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-08-22
+
 ### Added
 
 - **Turborepo Monorepo Architecture:** Converted the repository into a high-performance
@@ -116,6 +118,8 @@ framework, implementing the full technical specification in
   (§4.1) plus failure-mode and monitoring tests (§4.2, §5).
 - Packaging metadata (`pyproject.toml`), MIT license, and this changelog.
 
+[Unreleased]: https://github.com/harlanljones/clify/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/harlanljones/clify/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/harlanljones/clify/releases/tag/v1.6.0
 [1.5.0]: https://github.com/harlanljones/clify/releases/tag/v1.5.0
 [1.4.2]: https://github.com/harlanljones/clify/releases/tag/v1.4.2

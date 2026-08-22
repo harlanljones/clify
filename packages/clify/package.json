@@ -1,6 +1,6 @@
 {
   "name": "clify",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "private": true,
   "description": "Metric-driven ADD framework and complementary Spotify/cliamp CLI",
   "author": "harlan",

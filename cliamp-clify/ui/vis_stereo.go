@@ -4,6 +4,8 @@ import (
 	"math"
 	"strings"
 	"time"
+
+	"charm.land/lipgloss/v2"
 )
 
 const (
@@ -231,5 +233,10 @@ func renderStereoMeter(label string, level, peak float64, width int) string {
 		run.WriteString(glyph)
 	}
 	flushStyleRun(&line, &run, runTag)
-	return line.String()
+	// Pad to exact visible width.
+	result := line.String()
+	for lipgloss.Width(result) < width {
+		result += " "
+	}
+	return result
 }

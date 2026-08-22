@@ -1,0 +1,45 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions: {}
+
+jobs:
+  publish-clify-pypi:
+    name: Publish clify to PyPI
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Verify tag matches package version
+        run: |
+          PKG_VERSION=$(python3 -c "import tomllib;print(tomllib.load(open('packages/clify/pyproject.toml','rb'))['project']['version'])")
+          if [ "v$PKG_VERSION" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match packages/clify version ${PKG_VERSION}"
+            exit 1
+          fi
+      - name: Build sdist and wheel
+        working-directory: packages/clify
+        run: uv build
+      - name: Check distributions
+        run: uvx twine check packages/clify/dist/*
+      - name: Smoke-test wheel in clean venv
+        run: |
+          uv venv /tmp/wheeltest
+          uv pip install --python /tmp/wheeltest/bin/python packages/clify/dist/*.whl
+          /tmp/wheeltest/bin/python -c "from cliamp_agents import CliampQueryAgent; from clify_cli import main; print('wheel ok')"
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/clify/dist/
+          attestations: true
