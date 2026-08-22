@@ -22,7 +22,10 @@ To build and test the entire monorepo locally, ensure you have installed:
 - **Node.js** ≥ 18 and **[pnpm](https://pnpm.io/)** ≥ 9
 - **Go** ≥ 1.26
 - **Python** ≥ 3.10 (along with `pip`, `uv`, or a virtual environment)
-- **ALSA development headers** (Linux builds of `cliamp-clify`): e.g. `libasound2-dev` on Debian/Ubuntu, `alsa-lib-devel` on Fedora, `alsa-lib` on Arch.
+- **Audio development headers** (Linux builds of `cliamp-clify`):
+  - Debian/Ubuntu: `sudo apt-get install -y libasound2-dev libflac-dev libogg-dev libvorbis-dev pkg-config`
+  - Fedora: `sudo dnf install -y alsa-lib-devel flac-devel libogg-devel libvorbis-devel pkgconf-pkg-config`
+  - Arch: `sudo pacman -S alsa-lib flac libogg libvorbis pkgconf`
 
 ---
 
@@ -30,10 +33,10 @@ To build and test the entire monorepo locally, ensure you have installed:
 
 1. **Fork and clone the repository:**
    ```bash
-   git clone --recursive https://github.com/harlanljones/clify.git
-
+   git clone https://github.com/harlanljones/clify.git
    cd clify
    ```
+
 
 2. **Install root dependencies:**
    ```bash
