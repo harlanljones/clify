@@ -1,0 +1,294 @@
+package model
+
+import (
+	"math"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/bjarneo/cliamp/player"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/ui"
+
+	tea "charm.land/bubbletea/v2"
+)
+
+var sharedPlayer player.Engine
+
+type stereoFakeEngine struct {
+	*playbackFakeEngine
+	samples [][2]float64
+	volume  float64
+	mono    bool
+}
+
+func (f *stereoFakeEngine) StereoSamplesInto(dst [][2]float64) int {
+	return copy(dst, f.samples)
+}
+
+func (f *stereoFakeEngine) Volume() float64 { return f.volume }
+func (f *stereoFakeEngine) Mono() bool      { return f.mono }
+
+func TestMain(m *testing.M) {
+	os.Unsetenv("CLIAMP_CONFIG_DIR")
+	os.Unsetenv("XDG_CONFIG_HOME")
+
+	sr := player.DeviceSampleRate()
+	if sr <= 0 {
+		sr = 44100
+	}
+	p, err := player.New(player.Quality{SampleRate: sr, BufferMs: 100, ResampleQuality: 1})
+	if err == nil {
+		sharedPlayer = p
+		defer p.Close()
+	}
+	os.Exit(m.Run())
+}
+
+// TestTickIntervalStoppedUsesIdle verifies that a fully-idle model (player
+// stopped, no overlay, no pending status / reconnect) ticks at ui.TickIdle
+// rather than ui.TickSlow / ui.TickFast. This is what lets the CPU sit in a
+// low P-state between user actions (issue #92 and follow-ups).
+func TestTickIntervalStoppedUsesIdle(t *testing.T) {
+	if sharedPlayer == nil {
+		t.Skip("audio hardware unavailable")
+	}
+	m := Model{
+		player:    sharedPlayer,
+		vis:       ui.NewVisualizer(float64(sharedPlayer.SampleRate())),
+		playlist:  playlist.New(),
+		termTitle: terminalTitleState{},
+	}
+
+	if sharedPlayer.IsPlaying() {
+		t.Fatal("expected player to be stopped")
+	}
+	if !m.isFullyIdle() {
+		t.Fatal("isFullyIdle() = false on a fresh stopped model, want true")
+	}
+	if got := m.tickInterval(); got != ui.TickIdle {
+		t.Errorf("tickInterval() = %v, want %v (ui.TickIdle)", got, ui.TickIdle)
+	}
+}
+
+// TestTickIntervalPendingStatusUsesSlow verifies that a pending status
+// message keeps us off the idle cadence — otherwise the message would linger
+// up to TickIdle past its expiry.
+func TestTickIntervalPendingStatusUsesSlow(t *testing.T) {
+	if sharedPlayer == nil {
+		t.Skip("audio hardware unavailable")
+	}
+	m := Model{
+		player:   sharedPlayer,
+		vis:      ui.NewVisualizer(float64(sharedPlayer.SampleRate())),
+		playlist: playlist.New(),
+	}
+	m.status.Show("hello", statusTTL(2*time.Second))
+
+	if m.isFullyIdle() {
+		t.Fatal("isFullyIdle() = true with pending status message, want false")
+	}
+	if got := m.tickInterval(); got == ui.TickIdle {
+		t.Errorf("tickInterval() = %v with pending status, want a faster cadence", got)
+	}
+}
+
+func TestTickIntervalPlayingUsesFastCadence(t *testing.T) {
+	p := &playbackFakeEngine{playing: true}
+	m := Model{
+		player:   p,
+		vis:      ui.NewVisualizer(float64(p.SampleRate())),
+		playlist: playlist.New(),
+	}
+	m.SetVisualizer("none")
+
+	if got := m.tickInterval(); got != ui.TickFast {
+		t.Fatalf("tickInterval() = %v, want %v", got, ui.TickFast)
+	}
+}
+
+func TestTickIntervalLowPowerPlayingUsesLowPowerCadence(t *testing.T) {
+	p := &playbackFakeEngine{playing: true}
+	m := Model{
+		player:   p,
+		vis:      ui.NewVisualizer(float64(p.SampleRate())),
+		playlist: playlist.New(),
+	}
+	m.SetVisualizer("none")
+	m.SetLowPower(true)
+
+	if got := m.tickInterval(); got != ui.TickLowPowerPlaying {
+		t.Fatalf("tickInterval() = %v, want %v", got, ui.TickLowPowerPlaying)
+	}
+}
+
+func TestInitialTickUsesFastCadence(t *testing.T) {
+	prev := teaTick
+	t.Cleanup(func() {
+		teaTick = prev
+	})
+
+	called := false
+	teaTick = func(d time.Duration, fn func(time.Time) tea.Msg) tea.Cmd {
+		called = true
+		if d != ui.TickFast {
+			t.Fatalf("tick duration = %v, want %v", d, ui.TickFast)
+		}
+		return func() tea.Msg {
+			return fn(time.Unix(0, 0))
+		}
+	}
+
+	msg := tickCmd()()
+
+	if _, ok := msg.(tickMsg); !ok {
+		t.Fatalf("tickCmd() message = %T, want tickMsg", msg)
+	}
+	if !called {
+		t.Fatal("tickCmd() did not schedule teaTick")
+	}
+}
+
+func TestVisualizerTickContextProcessesStereoOutput(t *testing.T) {
+	player := &stereoFakeEngine{
+		playbackFakeEngine: &playbackFakeEngine{playing: true},
+		samples:            [][2]float64{{0.8, 0.4}},
+		volume:             -6.020599913279624,
+		mono:               true,
+	}
+	m := Model{
+		player:          player,
+		vis:             ui.NewVisualizer(44100),
+		visVolumeLinked: true,
+	}
+	m.vis.Mode = ui.VisStereo
+
+	dst := make([][2]float64, 1)
+	n := m.visualizerTickContext(time.Now()).StereoSamplesInto(dst)
+	if n != 1 {
+		t.Fatalf("StereoSamplesInto() = %d, want 1", n)
+	}
+	want := 0.3
+	for channel, got := range dst[0] {
+		if math.Abs(got-want) > 1e-9 {
+			t.Errorf("sample channel %d = %v, want %v", channel, got, want)
+		}
+	}
+}
+
+func TestRefreshVisualizerIfPendingConsumesOneShotRequest(t *testing.T) {
+	m := Model{
+		vis: ui.NewVisualizer(44100),
+	}
+
+	m.vis.RequestRefresh()
+	m.refreshVisualizerIfPending()
+
+	if m.vis.RefreshPending() {
+		t.Fatal("refreshPending = true after refreshVisualizerIfPending(), want false")
+	}
+	if m.vis.Frame() != 1 {
+		t.Fatalf("frame after refreshVisualizerIfPending() = %d, want 1", m.vis.Frame())
+	}
+
+	m.refreshVisualizerIfPending()
+	if m.vis.Frame() != 1 {
+		t.Fatalf("frame after second refreshVisualizerIfPending() = %d, want 1", m.vis.Frame())
+	}
+}
+
+func TestLyricsScreenKeepsVisualizerLive(t *testing.T) {
+	m := Model{
+		vis: ui.NewVisualizer(44100),
+		lyrics: lyricsState{
+			visible: true,
+		},
+	}
+
+	if got := m.activeScreen(); got != screenLyrics {
+		t.Fatalf("activeScreen() = %v, want %v", got, screenLyrics)
+	}
+	// Overlays now render inline over the live main view, so the visualizer is
+	// never treated as hidden.
+	if m.isOverlayActive() {
+		t.Fatal("isOverlayActive() = true, want false: overlays render inline")
+	}
+	if m.visualizerTickContext(time.Now()).OverlayActive {
+		t.Fatal("visualizerTickContext(...).OverlayActive = true, want false for inline lyrics")
+	}
+
+	m.vis.RequestRefresh()
+	m.refreshVisualizerIfPending()
+
+	if m.vis.RefreshPending() {
+		t.Fatal("refreshPending = true after refresh, want false: visualizer stays live under lyrics")
+	}
+	if m.vis.Frame() != 1 {
+		t.Fatalf("frame after refresh = %d, want 1 while lyrics open", m.vis.Frame())
+	}
+}
+
+func TestUpdateRequestsVisualizerRefreshWhenOverlayCloses(t *testing.T) {
+	m := Model{
+		vis: ui.NewVisualizer(44100),
+		keymap: keymapOverlay{
+			visible: true,
+		},
+	}
+
+	nextModel, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if cmd != nil {
+		t.Fatalf("Update() cmd = %v, want nil", cmd)
+	}
+
+	next, ok := nextModel.(Model)
+	if !ok {
+		t.Fatalf("Update() model = %T, want Model", nextModel)
+	}
+	if next.keymap.visible {
+		t.Fatal("keymap overlay remained visible after escape")
+	}
+	if !next.vis.RefreshPending() {
+		t.Fatal("refreshPending = false after overlay close, want true")
+	}
+}
+
+func TestUpdateRequestsVisualizerRefreshWhenLyricsClose(t *testing.T) {
+	m := Model{
+		vis: ui.NewVisualizer(44100),
+		lyrics: lyricsState{
+			visible: true,
+		},
+	}
+
+	nextModel, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if cmd != nil {
+		t.Fatalf("Update() cmd = %v, want nil", cmd)
+	}
+
+	next, ok := nextModel.(Model)
+	if !ok {
+		t.Fatalf("Update() model = %T, want Model", nextModel)
+	}
+	if next.lyrics.visible {
+		t.Fatal("lyrics overlay remained visible after escape")
+	}
+	if !next.vis.RefreshPending() {
+		t.Fatal("refreshPending = false after lyrics close, want true")
+	}
+}
+
+func TestAdvanceTickUnitsClearsElapsedWhenCounterCompletes(t *testing.T) {
+	ttl := 1
+	elapsed := time.Duration(0)
+
+	if got := advanceTickUnits(&ttl, &elapsed, 3*time.Second, ui.TickFast); got != 1 {
+		t.Fatalf("advanceTickUnits() steps = %d, want 1", got)
+	}
+	if ttl != 0 {
+		t.Fatalf("ttl after completion = %d, want 0", ttl)
+	}
+	if elapsed != 0 {
+		t.Fatalf("elapsed after completion = %v, want 0", elapsed)
+	}
+}

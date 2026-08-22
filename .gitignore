@@ -19,7 +19,14 @@ venv/
 .coverage
 htmlcov/
 
+# Go build outputs
+cliamp-clify/cliamp
+cliamp-clify/bin/
+cliamp-clify/generated_spike
+
 # Node / Turborepo
 node_modules/
 .turbo/
+
+
 

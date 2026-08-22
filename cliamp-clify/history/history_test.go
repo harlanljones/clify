@@ -1,0 +1,223 @@
+package history
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/bjarneo/cliamp/playlist"
+)
+
+func newTestStore(t *testing.T) *Store {
+	t.Helper()
+	dir := t.TempDir()
+	return NewAt(filepath.Join(dir, "history.toml"))
+}
+
+func mustRecord(t *testing.T, s *Store, track playlist.Track, at time.Time) {
+	t.Helper()
+	if err := s.Record(track, at); err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+}
+
+func TestRecentEmpty(t *testing.T) {
+	s := newTestStore(t)
+	got, err := s.Recent(0)
+	if err != nil {
+		t.Fatalf("Recent: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("Recent on empty store = %d entries, want 0", len(got))
+	}
+}
+
+func TestRecordOrdering(t *testing.T) {
+	s := newTestStore(t)
+	now := time.Now().UTC().Truncate(time.Second)
+
+	mustRecord(t, s, playlist.Track{Path: "/a.mp3", Title: "A"}, now.Add(-3*time.Hour))
+	mustRecord(t, s, playlist.Track{Path: "/b.mp3", Title: "B"}, now.Add(-2*time.Hour))
+	mustRecord(t, s, playlist.Track{Path: "/c.mp3", Title: "C"}, now.Add(-1*time.Hour))
+
+	got, err := s.Recent(0)
+	if err != nil {
+		t.Fatalf("Recent: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("got %d entries, want 3", len(got))
+	}
+	wantOrder := []string{"C", "B", "A"}
+	for i, e := range got {
+		if e.Track.Title != wantOrder[i] {
+			t.Errorf("entry %d title = %q, want %q", i, e.Track.Title, wantOrder[i])
+		}
+	}
+}
+
+func TestDedupConsecutiveReplay(t *testing.T) {
+	track := playlist.Track{Path: "/a.mp3", Title: "A"}
+	first := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name     string
+		gap      time.Duration
+		wantLen  int
+		wantTime time.Time // only checked when wantLen == 1
+	}{
+		{"inside window updates timestamp", 2 * time.Minute, 1, first.Add(2 * time.Minute)},
+		{"outside window is a new play", 10 * time.Minute, 2, time.Time{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := newTestStore(t)
+			mustRecord(t, s, track, first)
+			mustRecord(t, s, track, first.Add(tt.gap))
+
+			got, _ := s.Recent(0)
+			if len(got) != tt.wantLen {
+				t.Fatalf("got %d entries, want %d", len(got), tt.wantLen)
+			}
+			if tt.wantLen == 1 && !got[0].PlayedAt.Equal(tt.wantTime) {
+				t.Fatalf("PlayedAt = %v, want %v", got[0].PlayedAt, tt.wantTime)
+			}
+		})
+	}
+}
+
+func TestCapTruncates(t *testing.T) {
+	s := newTestStore(t)
+	s.SetCap(3)
+
+	base := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	for i := 0; i < 5; i++ {
+		mustRecord(t, s, playlist.Track{
+			Path:  filepath.FromSlash("/track" + string(rune('A'+i)) + ".mp3"),
+			Title: string(rune('A' + i)),
+		}, base.Add(time.Duration(i)*time.Hour))
+	}
+
+	got, _ := s.Recent(0)
+	if len(got) != 3 {
+		t.Fatalf("got %d entries, want 3 (cap)", len(got))
+	}
+	wantTitles := []string{"E", "D", "C"} // newest 3
+	for i, e := range got {
+		if e.Track.Title != wantTitles[i] {
+			t.Errorf("entry %d = %q, want %q", i, e.Track.Title, wantTitles[i])
+		}
+	}
+}
+
+func TestRecentLimit(t *testing.T) {
+	s := newTestStore(t)
+	for i := 0; i < 10; i++ {
+		mustRecord(t, s, playlist.Track{Path: "/x" + string(rune('0'+i))}, time.Now().Add(time.Duration(i)*time.Minute))
+	}
+	got, _ := s.Recent(4)
+	if len(got) != 4 {
+		t.Fatalf("Recent(4) returned %d, want 4", len(got))
+	}
+}
+
+func TestRecordIgnoresEmptyPath(t *testing.T) {
+	s := newTestStore(t)
+	if err := s.Record(playlist.Track{Title: "no path"}, time.Now()); err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+	got, _ := s.Recent(0)
+	if len(got) != 0 {
+		t.Fatalf("got %d entries, want 0 (empty path skipped)", len(got))
+	}
+}
+
+func TestPersistAcrossInstances(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "history.toml")
+
+	s1 := NewAt(path)
+	mustRecord(t, s1, playlist.Track{Path: "/a.mp3", Title: "A", Artist: "Artist", Album: "Album", Year: 2026, DurationSecs: 180}, time.Date(2026, 5, 6, 22, 0, 0, 0, time.UTC))
+
+	s2 := NewAt(path)
+	got, err := s2.Recent(0)
+	if err != nil {
+		t.Fatalf("Recent: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("reloaded %d entries, want 1", len(got))
+	}
+	e := got[0]
+	if e.Track.Title != "A" || e.Track.Artist != "Artist" || e.Track.Album != "Album" {
+		t.Errorf("track meta lost: %+v", e.Track)
+	}
+	if e.Track.Year != 2026 || e.Track.DurationSecs != 180 {
+		t.Errorf("numeric meta lost: year=%d dur=%d", e.Track.Year, e.Track.DurationSecs)
+	}
+	if !e.PlayedAt.Equal(time.Date(2026, 5, 6, 22, 0, 0, 0, time.UTC)) {
+		t.Errorf("PlayedAt round-trip wrong: %v", e.PlayedAt)
+	}
+}
+
+func TestStreamFlagInferredOnReload(t *testing.T) {
+	s := newTestStore(t)
+	mustRecord(t, s, playlist.Track{Path: "https://example.com/stream", Title: "Live"}, time.Now())
+
+	// Force a reload by creating a fresh store at the same path.
+	s2 := NewAt(s.Path())
+	got, _ := s2.Recent(0)
+	if len(got) != 1 || !got[0].Track.Stream {
+		t.Fatalf("Stream flag not inferred from URL on reload: %+v", got)
+	}
+}
+
+func TestClearRemovesFile(t *testing.T) {
+	s := newTestStore(t)
+	mustRecord(t, s, playlist.Track{Path: "/a.mp3"}, time.Now())
+	if err := s.Clear(); err != nil {
+		t.Fatalf("Clear: %v", err)
+	}
+	if _, err := os.Stat(s.Path()); !os.IsNotExist(err) {
+		t.Fatalf("file should be gone after Clear, stat err = %v", err)
+	}
+	got, _ := s.Recent(0)
+	if len(got) != 0 {
+		t.Fatalf("post-Clear Recent = %d, want 0", len(got))
+	}
+}
+
+func TestClearMissingFileNoError(t *testing.T) {
+	s := newTestStore(t)
+	if err := s.Clear(); err != nil {
+		t.Fatalf("Clear on missing file: %v", err)
+	}
+}
+
+func TestTracksOrdered(t *testing.T) {
+	s := newTestStore(t)
+	base := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	mustRecord(t, s, playlist.Track{Path: "/a.mp3", Title: "A"}, base)
+	mustRecord(t, s, playlist.Track{Path: "/b.mp3", Title: "B"}, base.Add(1*time.Hour))
+
+	tracks, err := s.Tracks(0)
+	if err != nil {
+		t.Fatalf("Tracks: %v", err)
+	}
+	if len(tracks) != 2 || tracks[0].Title != "B" || tracks[1].Title != "A" {
+		t.Fatalf("Tracks order wrong: %+v", tracks)
+	}
+}
+
+func TestNilStoreSafe(t *testing.T) {
+	var s *Store
+	if err := s.Record(playlist.Track{Path: "/a.mp3"}, time.Now()); err != nil {
+		t.Errorf("nil Record returned err: %v", err)
+	}
+	if got, err := s.Recent(0); err != nil || got != nil {
+		t.Errorf("nil Recent: got=%v err=%v", got, err)
+	}
+	if err := s.Clear(); err != nil {
+		t.Errorf("nil Clear returned err: %v", err)
+	}
+}

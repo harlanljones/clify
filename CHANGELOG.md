@@ -116,6 +116,6 @@ framework, implementing the full technical specification in
   (§4.1) plus failure-mode and monitoring tests (§4.2, §5).
 - Packaging metadata (`pyproject.toml`), MIT license, and this changelog.
 
-[1.5.0]: https://github.com/harlan/clify/releases/tag/v1.5.0
-[1.6.0]: https://github.com/harlan/clify/releases/tag/v1.6.0
-[1.4.2]: https://github.com/harlan/clify/releases/tag/v1.4.2
+[1.6.0]: https://github.com/harlanljones/clify/releases/tag/v1.6.0
+[1.5.0]: https://github.com/harlanljones/clify/releases/tag/v1.5.0
+[1.4.2]: https://github.com/harlanljones/clify/releases/tag/v1.4.2

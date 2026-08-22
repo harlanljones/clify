@@ -30,7 +30,8 @@ To build and test the entire monorepo locally, ensure you have installed:
 
 1. **Fork and clone the repository:**
    ```bash
-   git clone --recursive https://github.com/harlan/clify.git
+   git clone --recursive https://github.com/harlanljones/clify.git
+
    cd clify
    ```
 
@@ -138,5 +139,6 @@ All agent additions and modifications must adhere to the three-stage TDD lifecyc
 
 ## Reporting Issues & Security
 
-- **Bugs and Feature Requests:** Please open an issue using the appropriate template in the [Issues](https://github.com/harlan/clify/issues) tab.
+- **Bugs and Feature Requests:** Please open an issue using the appropriate template in the [Issues](https://github.com/harlanljones/clify/issues) tab.
+
 - **Security Vulnerabilities:** Please review our [Security Policy](SECURITY.md) for responsible disclosure instructions.

@@ -71,7 +71,8 @@ Prerequisites: Node.js ≥ 18, [pnpm](https://pnpm.io/) ≥ 9, Go ≥ 1.26, Pyth
 
 ```bash
 # Clone the monorepo
-git clone https://github.com/harlan/clify.git
+git clone https://github.com/harlanljones/clify.git
+
 cd clify
 
 # Install monorepo dependencies (Turborepo)

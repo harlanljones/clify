@@ -1,0 +1,23 @@
+{
+  "name": "cliamp-clify",
+  "version": "1.63.2-clify.2",
+  "private": true,
+  "description": "Retro terminal music player with extended Spotify superpowers (cliamp fork)",
+  "author": "harlan",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/harlanljones/clify.git",
+    "directory": "cliamp-clify"
+  },
+
+
+  "scripts": {
+    "build": "make build",
+    "test": "go test ./...",
+    "check": "make check",
+    "lint": "make vet",
+    "clean": "make clean",
+    "dev": "go run ."
+  }
+}

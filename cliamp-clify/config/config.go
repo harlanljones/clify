@@ -1,0 +1,926 @@
+// Package config handles loading user configuration from ~/.config/cliamp/config.toml.
+package config
+
+import (
+	"bufio"
+	"errors"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/bjarneo/cliamp/internal/appdir"
+	"github.com/bjarneo/cliamp/internal/fileutil"
+)
+
+// configPath returns the path to the config file.
+func configPath() (string, error) {
+	dir, err := appdir.Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "config.toml"), nil
+}
+
+// parseString trims surrounding quotes from a TOML string value and, if the
+// result is exactly $NAME or ${NAME}, replaces it with the value of that
+// environment variable (or "" when unset). Mixed values containing other
+// characters are left untouched, so literal '$' in passwords is preserved.
+func parseString(s string) string {
+	s = strings.Trim(s, `"'`)
+	if len(s) < 2 || s[0] != '$' {
+		return s
+	}
+	name := s[1:]
+	if name[0] == '{' {
+		if name[len(name)-1] != '}' {
+			return s
+		}
+		name = name[1 : len(name)-1]
+	}
+	if !isEnvName(name) {
+		return s
+	}
+	return os.Getenv(name)
+}
+
+func isEnvName(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i, r := range s {
+		switch {
+		case r == '_':
+		case r >= 'A' && r <= 'Z':
+		case r >= 'a' && r <= 'z':
+		case i > 0 && r >= '0' && r <= '9':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// NavidromeConfig holds credentials for a Navidrome/Subsonic server.
+// All three fields must be non-empty for a client to be constructed.
+type NavidromeConfig struct {
+	URL              string // e.g. "https://music.example.com"
+	User             string
+	Password         string
+	BrowseSort       string // album browse sort order, e.g. "alphabeticalByName"
+	ScrobbleDisabled bool   // true only when "scrobble = false" is explicitly set
+}
+
+// IsSet reports whether all three Navidrome credentials are present.
+func (n NavidromeConfig) IsSet() bool {
+	return n.URL != "" && n.User != "" && n.Password != ""
+}
+
+// SpotifyConfig holds settings for the Spotify provider. Requires a Spotify
+// Premium account. If client_id is empty, a built-in fallback (the librespot
+// keymaster ID) is used so search and catalog endpoints work even for users
+// who never registered their own developer app — see Spotify's Nov 27, 2024
+// dev-mode quota restriction.
+type SpotifyConfig struct {
+	Disabled bool   // true only when user explicitly sets enabled = false
+	Enabled  bool   // true when [spotify] section exists (even without client_id)
+	ClientID string // Spotify Developer app client ID (overrides built-in fallback)
+	Bitrate  int    // preferred Spotify stream bitrate in kbps
+}
+
+// IsSet reports whether the Spotify provider should be shown. Section presence
+// is enough — a built-in fallback client_id is used when none is configured.
+func (s SpotifyConfig) IsSet() bool {
+	return !s.Disabled && s.Enabled
+}
+
+// ResolveClientID returns the user's configured client_id, or fallbackID when
+// none is set.
+func (s SpotifyConfig) ResolveClientID(fallbackID string) string {
+	if s.ClientID != "" {
+		return s.ClientID
+	}
+	return fallbackID
+}
+
+// QobuzConfig holds settings for the Qobuz provider. Requires a paid Qobuz
+// subscription (Studio/Sublime). The app_id, signing secrets and OAuth private
+// key are scraped automatically from the Qobuz web player, so no developer
+// credentials are needed. Sign-in is an interactive OAuth browser flow.
+type QobuzConfig struct {
+	Disabled bool // true only when user explicitly sets enabled = false
+	Enabled  bool // true when [qobuz] section exists
+	Quality  int  // preferred stream format_id: 5 (MP3 320), 6 (FLAC CD), 7 (Hi-Res <=96kHz), 27 (Hi-Res <=192kHz)
+}
+
+// IsSet reports whether the Qobuz provider should be shown. Section presence
+// is enough; credentials are scraped from the Qobuz web player automatically.
+func (q QobuzConfig) IsSet() bool {
+	return !q.Disabled && q.Enabled
+}
+
+// YouTubeMusicConfig holds settings for the YouTube Music provider.
+// If no client_id/client_secret are set, built-in fallback credentials are
+// used automatically (same pattern as Spotify).
+type YouTubeMusicConfig struct {
+	Disabled       bool   // true only when user explicitly sets enabled = false
+	Enabled        bool   // true when [ytmusic] section exists (even without credentials)
+	ClientID       string // Google Cloud OAuth2 client ID (overrides built-in fallback)
+	ClientSecret   string // Google Cloud OAuth2 client secret (overrides built-in fallback)
+	CookiesFrom    string // browser name for yt-dlp --cookies-from-browser (e.g. "chrome", "firefox")
+	ExpandPlaylist *bool  // nil = default (true), controls whether list= URLs expand the full playlist
+}
+
+// IsSetOrFallback returns true when YouTube providers should be enabled,
+// either via config or because fallback credentials are available.
+func (y YouTubeMusicConfig) IsSetOrFallback(fallbackFn func() (string, string)) bool {
+	if y.Disabled {
+		return false
+	}
+	if y.Enabled {
+		return true
+	}
+	// Even without a config section, enable if fallback credentials exist.
+	if fallbackFn != nil {
+		id, secret := fallbackFn()
+		return id != "" && secret != ""
+	}
+	return false
+}
+
+// ResolveCredentials returns the user's configured credentials, or falls back
+// to the built-in pool. Returns empty strings only when the pool is also empty.
+func (y YouTubeMusicConfig) ResolveCredentials(fallbackFn func() (string, string)) (clientID, clientSecret string) {
+	if y.ClientID != "" && y.ClientSecret != "" {
+		return y.ClientID, y.ClientSecret
+	}
+	if fallbackFn != nil {
+		return fallbackFn()
+	}
+	return "", ""
+}
+
+// SoundCloudConfig holds settings for the SoundCloud provider.
+// SoundCloud is opt-in: requires enabled = true in [soundcloud] before the
+// provider registers. Setting User exposes that profile's Tracks/Likes/Reposts
+// in the browse view. Setting CookiesFrom (browser name) lets yt-dlp use the
+// user's signed-in session for subscriber-gated tracks.
+type SoundCloudConfig struct {
+	Enabled     bool   // true only when user explicitly sets enabled = true
+	User        string // SoundCloud username for browse (optional)
+	CookiesFrom string // browser name for yt-dlp --cookies-from-browser (optional)
+}
+
+// IsSet reports whether the SoundCloud provider should be shown.
+func (s SoundCloudConfig) IsSet() bool { return s.Enabled }
+
+// NetEaseConfig holds settings for the NetEase Cloud Music provider.
+// The provider is opt-in and can reuse an existing browser session through
+// yt-dlp's --cookies-from-browser support.
+type NetEaseConfig struct {
+	Enabled     bool   // true only when user explicitly sets enabled = true
+	CookiesFrom string // browser name for account APIs and playback (e.g. "chrome")
+	UserID      string // optional account user id; setup can discover this from cookies
+}
+
+// IsSet reports whether the NetEase provider should be shown.
+func (n NetEaseConfig) IsSet() bool { return n.Enabled }
+
+// PlexConfig holds credentials for a Plex Media Server.
+// Both URL and Token must be non-empty for a client to be constructed.
+type PlexConfig struct {
+	URL       string   // e.g. "http://192.168.1.10:32400"
+	Token     string   // X-Plex-Token
+	Libraries []string // optional: restrict to these music library names
+}
+
+// IsSet reports whether both Plex credentials are present.
+func (p PlexConfig) IsSet() bool {
+	return p.URL != "" && p.Token != ""
+}
+
+// JellyfinConfig holds credentials for a Jellyfin server.
+// URL is required. Authenticate either with Token, or with User+Password.
+// UserID is optional and can be discovered lazily.
+type JellyfinConfig struct {
+	URL      string // e.g. "https://jellyfin.example.com"
+	Token    string // API access token
+	User     string // optional username for password-based login
+	Password string // optional password for password-based login
+	UserID   string // optional user id to skip discovery via /Users/Me
+}
+
+// IsSet reports whether the Jellyfin provider is configured.
+func (j JellyfinConfig) IsSet() bool {
+	return j.URL != "" && (j.Token != "" || (j.User != "" && j.Password != ""))
+}
+
+// EmbyConfig holds credentials for an Emby server.
+// URL is required. Authenticate either with Token, or with User+Password.
+// UserID is optional and can be discovered lazily.
+type EmbyConfig struct {
+	URL      string // e.g. "https://emby.example.com"
+	Token    string // API access token
+	User     string // optional username for password-based login
+	Password string // optional password for password-based login
+	UserID   string // optional user id to skip discovery via /Users/Me
+}
+
+// IsSet reports whether the Emby provider is configured.
+func (e EmbyConfig) IsSet() bool {
+	return e.URL != "" && (e.Token != "" || (e.User != "" && e.Password != ""))
+}
+
+// Config holds user preferences loaded from the config file.
+type Config struct {
+	Volume           float64     // dB, clamped at runtime to [VolumeMin, +6]
+	VolumeMin        float64     // dB floor, range [-90, 0]; default -50
+	VisVolumeLinked  bool        // when true, visualizer bar height follows volume; default true
+	EQ               [10]float64 // per-band gain in dB, range [-12, +12]
+	EQPreset         string      // preset name, or "" for custom
+	Repeat           string      // "off", "all", or "one"
+	Shuffle          bool
+	Mono             bool
+	Speed            float64                      // playback speed ratio: 0.25–2.0 (default 1.0)
+	AutoPlay         bool                         // start playback automatically on launch (radio streams, CLI tracks)
+	SeekStepLarge    int                          // seconds for Shift+Left/Right seek jumps
+	Provider         string                       // default provider: "radio", "navidrome", "spotify", "qobuz", "plex", "jellyfin", "emby", "soundcloud", "netease", "ytmusic" (default "radio")
+	Theme            string                       // theme name, or "" for ANSI default
+	Visualizer       string                       // visualizer mode name, or "" for default (Bars)
+	SampleRate       int                          // output sample rate: 22050, 44100, 48000, 96000, 192000
+	BufferMs         int                          // speaker buffer in milliseconds (50-5000)
+	ResampleQuality  int                          // beep resample quality factor (1–4)
+	BitDepth         int                          // PCM bit depth for FFmpeg output: 16 or 32
+	Compact          bool                         // compact mode: cap frame width at 80 columns
+	PaddingH         int                          // horizontal padding for the UI frame (default 3)
+	PaddingV         int                          // vertical padding for the UI frame (default 1)
+	AudioDevice      string                       // preferred audio output device name (empty = system default)
+	Playlist         string                       // local TOML playlist name to load on startup
+	InitialDirectory string                       // initial directory for the file browser
+	Navidrome        NavidromeConfig              // optional Navidrome/Subsonic server credentials
+	Spotify          SpotifyConfig                // optional Spotify provider (requires Premium)
+	Qobuz            QobuzConfig                  // optional Qobuz provider (requires subscription)
+	YouTubeMusic     YouTubeMusicConfig           // optional YouTube Music provider
+	Plex             PlexConfig                   // optional Plex Media Server credentials
+	Jellyfin         JellyfinConfig               // optional Jellyfin server credentials
+	Emby             EmbyConfig                   // optional Emby server credentials
+	SoundCloud       SoundCloudConfig             // SoundCloud provider (opt-in via enabled = true)
+	NetEase          NetEaseConfig                // NetEase Cloud Music provider (opt-in via enabled = true)
+	Plugins          map[string]map[string]string // per-plugin config from [plugins.*] sections
+	LogLevel         string                       // log level: debug, info, warn, error (default "info")
+	LowPower         bool                         // reduce CPU by lowering UI cadence and disabling visualization
+}
+
+// defaultConfig returns a Config with sensible defaults.
+// SampleRate defaults to 0, which means "auto-detect from the system's default
+// output device" (see player.DeviceSampleRate). This ensures USB audio devices
+// that require a specific rate (commonly 48 kHz) work out of the box.
+func defaultConfig() Config {
+	return Config{
+		VolumeMin:       -50,
+		VisVolumeLinked: true,
+		Repeat:          "off",
+		AutoPlay:        false,
+		Speed:           1.0,
+		SeekStepLarge:   30,
+		SampleRate:      0,
+		BufferMs:        250,
+		ResampleQuality: 4,
+		BitDepth:        16,
+		PaddingH:        3,
+		PaddingV:        1,
+		Spotify:         SpotifyConfig{Bitrate: 320},
+		Qobuz:           QobuzConfig{Quality: 6},
+		LogLevel:        "info",
+	}
+}
+
+// Load reads the config file from ~/.config/cliamp/config.toml.
+// Returns defaults if the file does not exist.
+func Load() (Config, error) {
+	cfg := defaultConfig()
+
+	path, err := configPath()
+	if err != nil {
+		return cfg, nil
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return cfg, nil
+		}
+		return cfg, err
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	section := "" // current [section] header, empty = top-level
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Section header: [navidrome], [plex], [plugins.lastfm], etc.
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			section = strings.ToLower(line[1 : len(line)-1])
+			// Mark providers as enabled when their section exists.
+			// [yt], [youtube], and [ytmusic] all configure the same YouTube providers.
+			switch section {
+			case "yt", "youtube", "ytmusic":
+				cfg.YouTubeMusic.Enabled = true
+				section = "ytmusic" // normalize for key parsing below
+			case "spotify":
+				cfg.Spotify.Enabled = true
+			case "qobuz":
+				cfg.Qobuz.Enabled = true
+			}
+			// Initialize plugin sub-maps for [plugins] and [plugins.*] sections.
+			if section == "plugins" || strings.HasPrefix(section, "plugins.") {
+				if cfg.Plugins == nil {
+					cfg.Plugins = make(map[string]map[string]string)
+				}
+				pluginName := strings.TrimPrefix(section, "plugins.")
+				if pluginName == "plugins" {
+					pluginName = "" // top-level [plugins] section
+				}
+				if _, ok := cfg.Plugins[pluginName]; !ok {
+					cfg.Plugins[pluginName] = make(map[string]string)
+				}
+			}
+			continue
+		}
+
+		key, val, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		val = strings.TrimSpace(val)
+
+		switch section {
+		case "navidrome":
+			switch key {
+			case "url":
+				cfg.Navidrome.URL = parseString(val)
+			case "user":
+				cfg.Navidrome.User = parseString(val)
+			case "password":
+				cfg.Navidrome.Password = parseString(val)
+			case "browse_sort":
+				cfg.Navidrome.BrowseSort = parseString(val)
+			case "scrobble":
+				// Opt-out: only mark disabled when the value is explicitly "false".
+				cfg.Navidrome.ScrobbleDisabled = strings.ToLower(val) == "false"
+			}
+		case "spotify":
+			switch key {
+			case "enabled":
+				cfg.Spotify.Disabled = strings.ToLower(val) == "false"
+			case "client_id":
+				cfg.Spotify.ClientID = parseString(val)
+			case "bitrate":
+				if v, err := strconv.Atoi(val); err == nil {
+					cfg.Spotify.Bitrate = v
+				}
+			}
+		case "qobuz":
+			switch key {
+			case "enabled":
+				cfg.Qobuz.Disabled = strings.ToLower(val) == "false"
+			case "quality":
+				if v, err := strconv.Atoi(val); err == nil {
+					cfg.Qobuz.Quality = v
+				}
+			}
+		case "ytmusic":
+			switch key {
+			case "enabled":
+				cfg.YouTubeMusic.Disabled = strings.ToLower(val) == "false"
+			case "client_id":
+				cfg.YouTubeMusic.ClientID = parseString(val)
+			case "client_secret":
+				cfg.YouTubeMusic.ClientSecret = parseString(val)
+			case "cookies_from":
+				cfg.YouTubeMusic.CookiesFrom = parseString(val)
+			case "expand_playlist":
+				v := strings.ToLower(val) != "false"
+				cfg.YouTubeMusic.ExpandPlaylist = &v
+			}
+		case "plex":
+			switch key {
+			case "url":
+				cfg.Plex.URL = parseString(val)
+			case "token":
+				cfg.Plex.Token = parseString(val)
+			case "libraries":
+				cfg.Plex.Libraries = parseStringSlice(val)
+			}
+		case "soundcloud":
+			switch key {
+			case "enabled":
+				cfg.SoundCloud.Enabled = strings.ToLower(val) == "true"
+			case "user":
+				cfg.SoundCloud.User = parseString(val)
+			case "cookies_from":
+				cfg.SoundCloud.CookiesFrom = parseString(val)
+			}
+		case "netease":
+			switch key {
+			case "enabled":
+				cfg.NetEase.Enabled = strings.ToLower(val) == "true"
+			case "cookies_from":
+				cfg.NetEase.CookiesFrom = parseString(val)
+			case "user_id":
+				cfg.NetEase.UserID = parseString(val)
+			}
+		case "jellyfin":
+			switch key {
+			case "url":
+				cfg.Jellyfin.URL = parseString(val)
+			case "token":
+				cfg.Jellyfin.Token = parseString(val)
+			case "user":
+				cfg.Jellyfin.User = parseString(val)
+			case "password":
+				cfg.Jellyfin.Password = parseString(val)
+			case "user_id":
+				cfg.Jellyfin.UserID = parseString(val)
+			}
+		case "emby":
+			switch key {
+			case "url":
+				cfg.Emby.URL = parseString(val)
+			case "token":
+				cfg.Emby.Token = parseString(val)
+			case "user":
+				cfg.Emby.User = parseString(val)
+			case "password":
+				cfg.Emby.Password = parseString(val)
+			case "user_id":
+				cfg.Emby.UserID = parseString(val)
+			}
+		default:
+			// Handle [plugins] and [plugins.*] sections.
+			if section == "plugins" || strings.HasPrefix(section, "plugins.") {
+				pluginName := strings.TrimPrefix(section, "plugins.")
+				if pluginName == "plugins" {
+					pluginName = "" // top-level [plugins] section
+				}
+				if cfg.Plugins != nil {
+					if m, ok := cfg.Plugins[pluginName]; ok {
+						m[key] = parseString(val)
+					}
+				}
+				continue
+			}
+			switch key {
+			case "volume":
+				if v, err := strconv.ParseFloat(val, 64); err == nil {
+					cfg.Volume = v
+				}
+			case "volume_min":
+				if v, err := strconv.ParseFloat(val, 64); err == nil {
+					cfg.VolumeMin = v
+				}
+			case "vis_volume_linked":
+				if v, err := strconv.ParseBool(val); err == nil {
+					cfg.VisVolumeLinked = v
+				}
+			case "repeat":
+				val = parseString(val)
+				switch strings.ToLower(val) {
+				case "all", "one", "off":
+					cfg.Repeat = strings.ToLower(val)
+				}
+			case "shuffle":
+				cfg.Shuffle = val == "true"
+			case "mono":
+				cfg.Mono = val == "true"
+			case "auto_play":
+				cfg.AutoPlay = val == "true"
+			case "seek_large_step_sec":
+				if v, err := strconv.Atoi(val); err == nil {
+					cfg.SeekStepLarge = v
+				}
+			case "eq":
+				cfg.EQ = parseEQ(val)
+			case "eq_preset":
+				cfg.EQPreset = parseString(val)
+			case "theme":
+				cfg.Theme = parseString(val)
+			case "provider":
+				cfg.Provider = strings.ToLower(parseString(val))
+			case "visualizer":
+				cfg.Visualizer = parseString(val)
+			case "sample_rate":
+				if v, err := strconv.Atoi(val); err == nil {
+					cfg.SampleRate = v
+				}
+			case "buffer_ms":
+				if v, err := strconv.Atoi(val); err == nil {
+					cfg.BufferMs = v
+				}
+			case "resample_quality":
+				if v, err := strconv.Atoi(val); err == nil {
+					cfg.ResampleQuality = v
+				}
+			case "bit_depth":
+				if v, err := strconv.Atoi(val); err == nil {
+					cfg.BitDepth = v
+				}
+			case "speed":
+				if v, err := strconv.ParseFloat(val, 64); err == nil {
+					cfg.Speed = v
+				}
+			case "compact":
+				cfg.Compact = val == "true"
+			case "audio_device":
+				cfg.AudioDevice = parseString(val)
+			case "initial_directory":
+				cfg.InitialDirectory = parseString(val)
+			case "padding_horizontal":
+				if v, err := strconv.Atoi(val); err == nil {
+					cfg.PaddingH = v
+				}
+			case "padding_vertical":
+				if v, err := strconv.Atoi(val); err == nil {
+					cfg.PaddingV = v
+				}
+			case "log_level":
+				lvl := strings.ToLower(parseString(val))
+				switch lvl {
+				case "debug", "info", "warn", "warning", "error":
+					cfg.LogLevel = lvl
+				}
+			case "low_power":
+				cfg.LowPower = strings.ToLower(val) == "true"
+			}
+		}
+	}
+
+	cfg.clamp()
+	return cfg, scanner.Err()
+}
+
+// Save updates only the given key in the existing config file, preserving
+// all other content, comments, and formatting. If the key doesn't exist,
+// it is appended. If no config file exists, one is created with just that key.
+func Save(key, value string) error {
+	path, err := configPath()
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+
+	line := fmt.Sprintf("%s = %s", key, value)
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		return fileutil.WriteFileAtomic(path, []byte(line+"\n"), 0o600)
+	}
+
+	// Scan existing lines and replace the matching key in-place,
+	// but only in the top-level scope (before any [section] header).
+	lines := strings.Split(string(data), "\n")
+	found := false
+	for i, l := range lines {
+		trimmed := strings.TrimSpace(l)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		// Stop searching once we hit a section header — the key
+		// belongs in the top-level scope only.
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			break
+		}
+		k, _, ok := strings.Cut(trimmed, "=")
+		if ok && strings.TrimSpace(k) == key {
+			lines[i] = line
+			found = true
+			break
+		}
+	}
+	if !found {
+		// Insert before the first section header to keep top-level keys together.
+		inserted := false
+		for i, l := range lines {
+			trimmed := strings.TrimSpace(l)
+			if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+				lines = append(lines[:i], append([]string{line}, lines[i:]...)...)
+				inserted = true
+				break
+			}
+		}
+		if !inserted {
+			lines = append(lines, line)
+		}
+	}
+
+	return fileutil.WriteFileAtomic(path, []byte(strings.Join(lines, "\n")), 0o600)
+}
+
+// SaveNavidromeSort persists the given album browse sort type to the
+// [navidrome] section of the config file. It rewrites the browse_sort key
+// in-place, or appends it after the [navidrome] section if not present.
+// If no [navidrome] section exists, one is appended along with the key.
+func SaveNavidromeSort(sortType string) error {
+	path, err := configPath()
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+
+	line := fmt.Sprintf("browse_sort = %q", sortType)
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		// No file: create with section + key.
+		return fileutil.WriteFileAtomic(path, []byte("[navidrome]\n"+line+"\n"), 0o600)
+	}
+
+	lines := strings.Split(string(data), "\n")
+
+	// Try to replace an existing browse_sort inside [navidrome].
+	inNavidrome := false
+	for i, l := range lines {
+		trimmed := strings.TrimSpace(l)
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			inNavidrome = strings.ToLower(trimmed[1:len(trimmed)-1]) == "navidrome"
+			continue
+		}
+		if inNavidrome {
+			k, _, ok := strings.Cut(trimmed, "=")
+			if ok && strings.TrimSpace(k) == "browse_sort" {
+				lines[i] = line
+				return fileutil.WriteFileAtomic(path, []byte(strings.Join(lines, "\n")), 0o600)
+			}
+		}
+	}
+
+	// Key not found: append after the last line in the [navidrome] section,
+	// or append a new [navidrome] section at the end.
+	inNavidrome = false
+	insertAt := -1
+	for i, l := range lines {
+		trimmed := strings.TrimSpace(l)
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			if inNavidrome && insertAt >= 0 {
+				break // we've moved past [navidrome]
+			}
+			inNavidrome = strings.ToLower(trimmed[1:len(trimmed)-1]) == "navidrome"
+		}
+		if inNavidrome {
+			insertAt = i
+		}
+	}
+
+	if insertAt >= 0 {
+		// Insert after the last line we saw inside [navidrome].
+		tail := append([]string{line}, lines[insertAt+1:]...)
+		lines = append(lines[:insertAt+1], tail...)
+	} else {
+		// No [navidrome] section found: append one.
+		lines = append(lines, "[navidrome]", line)
+	}
+
+	return fileutil.WriteFileAtomic(path, []byte(strings.Join(lines, "\n")), 0o600)
+}
+
+// SaveSpotifyKey persists key = "value" inside the [spotify] section of the
+// config file, creating the file or section when missing. Existing content,
+// comments, and formatting elsewhere are preserved.
+func SaveSpotifyKey(key, value string) error {
+	return saveSectionKey("spotify", key, value)
+}
+
+// saveSectionKey rewrites the given key inside the named TOML section of the
+// config file, or appends it to that section (creating section and file when
+// needed). Modeled on SaveNavidromeSort.
+func saveSectionKey(section, key, value string) error {
+	path, err := configPath()
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+
+	line := fmt.Sprintf("%s = %q", key, value)
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		// No file: create with section + key.
+		return fileutil.WriteFileAtomic(path, []byte("["+section+"]\n"+line+"\n"), 0o600)
+	}
+
+	lines := strings.Split(string(data), "\n")
+
+	inSection := false
+	for i, l := range lines {
+		trimmed := strings.TrimSpace(l)
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			inSection = strings.EqualFold(trimmed[1:len(trimmed)-1], section)
+			continue
+		}
+		if inSection && trimmed != "" && !strings.HasPrefix(trimmed, "#") {
+			k, _, ok := strings.Cut(trimmed, "=")
+			if ok && strings.TrimSpace(k) == key {
+				lines[i] = line
+				return fileutil.WriteFileAtomic(path, []byte(strings.Join(lines, "\n")), 0o600)
+			}
+		}
+	}
+
+	// Key not found: append after the last line of the section, or append a
+	// new section at the end of the file.
+	inSection = false
+	insertAt := -1
+	for i, l := range lines {
+		trimmed := strings.TrimSpace(l)
+		if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			inSection = strings.EqualFold(trimmed[1:len(trimmed)-1], section)
+		}
+		if inSection {
+			insertAt = i
+		}
+	}
+
+	if insertAt >= 0 {
+		tail := append([]string{line}, lines[insertAt+1:]...)
+		lines = append(lines[:insertAt+1], tail...)
+	} else {
+		lines = append(lines, "["+section+"]", line)
+	}
+
+	return fileutil.WriteFileAtomic(path, []byte(strings.Join(lines, "\n")), 0o600)
+}
+
+// PlayerConfig is the subset of player controls needed to apply config.
+type PlayerConfig interface {
+	SetVolumeMin(db float64)
+	SetVolume(db float64)
+	SetSpeed(ratio float64)
+	SetEQBand(band int, dB float64)
+	ToggleMono()
+}
+
+// PlaylistConfig is the subset of playlist controls needed to apply config.
+type PlaylistConfig interface {
+	CycleRepeat()
+	ToggleShuffle()
+}
+
+// ApplyPlayer applies audio-engine settings from the config.
+func (c Config) ApplyPlayer(p PlayerConfig) {
+	p.SetVolumeMin(c.VolumeMin)
+	p.SetVolume(c.Volume)
+	if c.Speed != 0 && c.Speed != 1.0 {
+		p.SetSpeed(c.Speed)
+	}
+	if c.EQPreset == "" || c.EQPreset == "Custom" {
+		for i, gain := range c.EQ {
+			p.SetEQBand(i, gain)
+		}
+	}
+	if c.Mono {
+		p.ToggleMono()
+	}
+}
+
+// ApplyPlaylist applies playlist-state settings from the config.
+func (c Config) ApplyPlaylist(pl PlaylistConfig) {
+	switch c.Repeat {
+	case "all":
+		pl.CycleRepeat() // off -> all
+	case "one":
+		pl.CycleRepeat() // off -> all
+		pl.CycleRepeat() // all -> one
+	}
+	if c.Shuffle {
+		pl.ToggleShuffle()
+	}
+}
+
+// SeekStepLargeDuration returns the configured Shift+Left/Right seek jump.
+func (c Config) SeekStepLargeDuration() time.Duration {
+	return time.Duration(c.SeekStepLarge) * time.Second
+}
+
+// clamp constrains all Config fields to their valid ranges.
+func (c *Config) clamp() {
+	c.VolumeMin = max(min(c.VolumeMin, 0), -90)
+	c.Volume = max(min(c.Volume, 6), c.VolumeMin)
+	if c.Speed < 0.25 || c.Speed > 2.0 {
+		c.Speed = 1.0
+	}
+	c.SeekStepLarge = max(min(c.SeekStepLarge, 600), 6)
+	c.SampleRate = clampSampleRate(c.SampleRate)
+	c.BufferMs = max(min(c.BufferMs, 5000), 50)
+	c.ResampleQuality = max(min(c.ResampleQuality, 4), 1)
+	c.BitDepth = clampBitDepth(c.BitDepth)
+	c.Spotify.Bitrate = clampSpotifyBitrate(c.Spotify.Bitrate)
+	c.PaddingH = max(min(c.PaddingH, 10), 0)
+	c.PaddingV = max(min(c.PaddingV, 5), 0)
+	if c.LowPower {
+		c.Visualizer = "none"
+	}
+}
+
+// nearestAllowed returns the value in allowed closest to v.
+// allowed must be non-empty.
+func nearestAllowed(v int, allowed []int) int {
+	best := allowed[0]
+	bestDist := abs(v - best)
+	for _, a := range allowed[1:] {
+		if d := abs(v - a); d < bestDist {
+			best = a
+			bestDist = d
+		}
+	}
+	return best
+}
+
+// clampSampleRate returns the nearest valid sample rate from the allowed set.
+// A value of 0 is preserved as-is to signal "auto-detect" to the player.
+func clampSampleRate(v int) int {
+	if v == 0 {
+		return 0 // auto-detect
+	}
+	return nearestAllowed(v, []int{22050, 44100, 48000, 96000, 192000})
+}
+
+// clampBitDepth returns the nearest valid bit depth (16 or 32).
+func clampBitDepth(v int) int {
+	if v >= 24 {
+		return 32
+	}
+	return 16
+}
+
+func clampSpotifyBitrate(v int) int {
+	if v <= 0 {
+		return 320
+	}
+	return nearestAllowed(v, []int{96, 160, 320})
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
+// parseStringSlice parses a comma-separated list of strings, optionally
+// wrapped in square brackets (e.g. `["Music", "Jazz"]` or `Music, Jazz`).
+// Leading/trailing whitespace and surrounding quotes are stripped from each element.
+func parseStringSlice(val string) []string {
+	val = strings.Trim(val, "[]")
+	parts := strings.Split(val, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		p = strings.Trim(p, `"'`)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
+}
+
+// parseEQ parses a TOML-style array like [0, 1.5, -2, ...] into 10 bands.
+func parseEQ(val string) [10]float64 {
+	var bands [10]float64
+	val = strings.Trim(val, "[]")
+	parts := strings.Split(val, ",")
+	for i, p := range parts {
+		if i >= 10 {
+			break
+		}
+		if v, err := strconv.ParseFloat(strings.TrimSpace(p), 64); err == nil {
+			bands[i] = max(min(v, 12), -12)
+		}
+	}
+	return bands
+}

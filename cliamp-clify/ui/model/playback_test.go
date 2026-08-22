@@ -1,0 +1,414 @@
+package model
+
+import (
+	"strings"
+	"testing"
+	"time"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/bjarneo/cliamp/playlist"
+	"github.com/bjarneo/cliamp/ui"
+)
+
+type playbackFakeEngine struct {
+	playing           bool
+	gaplessAdvanced   bool
+	paused            bool
+	ytdlSeek          bool
+	position          time.Duration
+	playCalls         []string
+	seekYTDLCalls     []time.Duration
+	preloadCalls      []string
+	clearPreloadCalls int
+}
+
+func (f *playbackFakeEngine) Play(path string, _ time.Duration) error {
+	f.playing = true
+	f.paused = false
+	f.playCalls = append(f.playCalls, path)
+	return nil
+}
+func (f *playbackFakeEngine) PlayYTDL(string, time.Duration) error { return nil }
+func (f *playbackFakeEngine) Preload(path string, _ time.Duration) error {
+	f.preloadCalls = append(f.preloadCalls, path)
+	return nil
+}
+func (f *playbackFakeEngine) PreloadYTDL(string, time.Duration) error { return nil }
+func (f *playbackFakeEngine) ClearPreload()                           { f.clearPreloadCalls++ }
+func (f *playbackFakeEngine) Stop()                                   { f.playing, f.paused = false, false }
+func (f *playbackFakeEngine) Close()                                  {}
+func (f *playbackFakeEngine) TogglePause()                            { f.paused = !f.paused }
+func (f *playbackFakeEngine) Seek(time.Duration) error                { return nil }
+func (f *playbackFakeEngine) SeekYTDL(d time.Duration) error {
+	f.seekYTDLCalls = append(f.seekYTDLCalls, d)
+	return nil
+}
+func (f *playbackFakeEngine) CancelSeekYTDL()    {}
+func (f *playbackFakeEngine) IsPlaying() bool    { return f.playing }
+func (f *playbackFakeEngine) IsPaused() bool     { return f.paused }
+func (f *playbackFakeEngine) Drained() bool      { return false }
+func (f *playbackFakeEngine) HasPreload() bool   { return false }
+func (f *playbackFakeEngine) Seekable() bool     { return false }
+func (f *playbackFakeEngine) IsStreamSeek() bool { return false }
+func (f *playbackFakeEngine) IsYTDLSeek() bool   { return f.ytdlSeek }
+func (f *playbackFakeEngine) GaplessAdvanced() bool {
+	if !f.gaplessAdvanced {
+		return false
+	}
+	f.gaplessAdvanced = false
+	return true
+}
+func (f *playbackFakeEngine) Position() time.Duration { return f.position }
+func (f *playbackFakeEngine) Duration() time.Duration { return 0 }
+func (f *playbackFakeEngine) PositionAndDuration() (time.Duration, time.Duration) {
+	return 0, 0
+}
+func (f *playbackFakeEngine) SetVolumeMin(float64)                   {}
+func (f *playbackFakeEngine) VolumeMin() float64                     { return -50 }
+func (f *playbackFakeEngine) SetVolume(float64)                      {}
+func (f *playbackFakeEngine) Volume() float64                        { return 0 }
+func (f *playbackFakeEngine) SetSpeed(float64)                       {}
+func (f *playbackFakeEngine) Speed() float64                         { return 1 }
+func (f *playbackFakeEngine) ToggleMono()                            {}
+func (f *playbackFakeEngine) Mono() bool                             { return false }
+func (f *playbackFakeEngine) SetEQBand(int, float64)                 {}
+func (f *playbackFakeEngine) EQBands() [10]float64                   { return [10]float64{} }
+func (f *playbackFakeEngine) StreamErr() error                       { return nil }
+func (f *playbackFakeEngine) StreamTitle() string                    { return "" }
+func (f *playbackFakeEngine) StreamBytes() (downloaded, total int64) { return 0, 0 }
+func (f *playbackFakeEngine) SamplesInto([]float64) int              { return 0 }
+func (f *playbackFakeEngine) StereoSamplesInto([][2]float64) int     { return 0 }
+func (f *playbackFakeEngine) SampleRate() int                        { return 44100 }
+
+func TestNavTrackListQueueStartsQueuedTrackWhenStopped(t *testing.T) {
+	player := &playbackFakeEngine{}
+	p := playlist.New()
+	p.Replace([]playlist.Track{
+		{Title: "Existing", Path: "https://example.com/existing", Stream: true},
+		{Title: "Other", Path: "https://example.com/other", Stream: true},
+	})
+	p.SetIndex(0)
+
+	m := Model{
+		player:   player,
+		playlist: p,
+		vis:      ui.NewVisualizer(float64(player.SampleRate())),
+		navBrowser: navBrowserState{
+			tracks: []playlist.Track{
+				{Title: "Queued", Path: "https://example.com/queued", Stream: true},
+			},
+		},
+	}
+
+	cmd := m.handleNavTrackListKey(tea.KeyPressMsg{Text: "q"})
+	if cmd == nil {
+		t.Fatal("handleNavTrackListKey(q) = nil, want command")
+	}
+	if current, idx := m.playlist.Current(); current.Title != "Queued" || idx != 2 {
+		t.Fatalf("current = (%q,%d), want (\"Queued\",2)", current.Title, idx)
+	}
+	if m.plCursor != 2 {
+		t.Fatalf("plCursor = %d, want 2", m.plCursor)
+	}
+	if p.QueueLen() != 0 {
+		t.Fatalf("QueueLen() = %d, want 0 after starting queued track", p.QueueLen())
+	}
+}
+
+func TestTogglePlayPauseRestartsQueuedCurrentTrack(t *testing.T) {
+	player := &playbackFakeEngine{}
+	p := playlist.New()
+	p.Replace([]playlist.Track{
+		{Title: "Base", Path: "base.mp3", DurationSecs: 180},
+		{Title: "Queued", Path: "queued.mp3", DurationSecs: 180},
+	})
+	p.SetIndex(0)
+	p.Queue(1)
+	if track, ok := p.Next(); !ok || track.Title != "Queued" {
+		t.Fatalf("Next() = (%q,%t), want (\"Queued\",true)", track.Title, ok)
+	}
+	if !p.CurrentIsQueued() {
+		t.Fatal("CurrentIsQueued() = false, want true")
+	}
+
+	m := Model{
+		player:   player,
+		playlist: p,
+		vis:      ui.NewVisualizer(float64(player.SampleRate())),
+	}
+
+	if cmd := m.togglePlayPause(); cmd != nil {
+		_ = cmd()
+	}
+
+	if len(player.playCalls) != 1 || player.playCalls[0] != "queued.mp3" {
+		t.Fatalf("playCalls = %v, want [queued.mp3]", player.playCalls)
+	}
+	if current, idx := m.playlist.Current(); current.Title != "Queued" || idx != 1 {
+		t.Fatalf("current = (%q,%d), want (\"Queued\",1)", current.Title, idx)
+	}
+}
+
+func TestTogglePlayPauseReconnectsLongPausedYTDLAtCurrentPosition(t *testing.T) {
+	player := &playbackFakeEngine{
+		playing:  true,
+		paused:   true,
+		ytdlSeek: true,
+		position: 90 * time.Second,
+	}
+	p := playlist.New()
+	p.Replace([]playlist.Track{{
+		Title:        "YouTube Music",
+		Path:         "https://music.youtube.com/watch?v=dQw4w9WgXcQ",
+		Stream:       true,
+		DurationSecs: 180,
+	}})
+	p.SetIndex(0)
+
+	m := Model{
+		player:   player,
+		playlist: p,
+		vis:      ui.NewVisualizer(float64(player.SampleRate())),
+		pausedAt: time.Now().Add(-ytdlReconnectPauseThreshold),
+	}
+
+	cmd := m.togglePlayPause()
+	if cmd == nil {
+		t.Fatal("togglePlayPause() = nil, want reconnect command")
+	}
+	msg := cmd()
+	if reconnect, ok := msg.(ytdlUnpauseReconnectMsg); !ok || reconnect.err != nil {
+		t.Fatalf("cmd() = %#v, want successful ytdlUnpauseReconnectMsg", msg)
+	}
+	if len(player.seekYTDLCalls) != 1 || player.seekYTDLCalls[0] != 0 {
+		t.Fatalf("seekYTDLCalls = %v, want [0]", player.seekYTDLCalls)
+	}
+	if player.paused {
+		t.Fatal("player stayed paused after reconnect command")
+	}
+	if !m.seek.active || m.seek.targetPos != 90*time.Second {
+		t.Fatalf("seek state = active:%v target:%s, want active target 1m30s", m.seek.active, m.seek.targetPos)
+	}
+}
+
+func TestPlayCurrentTrackUnplayableUsesSelectionOrder(t *testing.T) {
+	player := &playbackFakeEngine{}
+	p := playlist.New()
+	p.Replace([]playlist.Track{
+		{Title: "Queued", Path: "https://example.com/queued", Stream: true},
+		{Title: "Missing", Unplayable: true},
+		{Title: "Replacement", Path: "https://example.com/replacement", Stream: true},
+	})
+	p.SetIndex(1)
+	p.Queue(0)
+
+	m := Model{
+		player:   player,
+		playlist: p,
+		provider: commandsTestProvider{name: "Test"},
+		vis:      ui.NewVisualizer(float64(player.SampleRate())),
+	}
+	m.requests.tracks = 1
+
+	cmd := m.playCurrentTrack()
+	if cmd == nil {
+		t.Fatal("playCurrentTrack() = nil, want command")
+	}
+	if idx := m.playlist.Index(); idx != 2 {
+		t.Fatalf("playlist.Index() = %d, want 2", idx)
+	}
+	if m.plCursor != 2 {
+		t.Fatalf("plCursor = %d, want 2", m.plCursor)
+	}
+	if m.status.text != "Track unavailable, skipping..." {
+		t.Fatalf("status.text = %q, want %q", m.status.text, "Track unavailable, skipping...")
+	}
+	if p.QueueLen() != 1 {
+		t.Fatalf("QueueLen() = %d, want 1", p.QueueLen())
+	}
+}
+
+func TestPlayCurrentTrackUnplayableStopsWhenNoReplacementExists(t *testing.T) {
+	player := &playbackFakeEngine{playing: true}
+	p := playlist.New()
+	p.Replace([]playlist.Track{
+		{Title: "Playing", Path: "playing.mp3", DurationSecs: 2},
+		{Title: "Missing", Unplayable: true},
+	})
+	p.SetIndex(1)
+
+	m := Model{
+		player:   player,
+		playlist: p,
+		vis:      ui.NewVisualizer(float64(player.SampleRate())),
+	}
+
+	if cmd := m.playCurrentTrack(); cmd != nil {
+		t.Fatalf("playCurrentTrack() = %v, want nil", cmd)
+	}
+	if len(player.playCalls) != 0 {
+		t.Fatalf("playCalls = %v, want none", player.playCalls)
+	}
+	if player.IsPlaying() {
+		t.Fatal("player.IsPlaying() = true, want false")
+	}
+	if _, idx := m.playlist.Current(); idx != 1 {
+		t.Fatalf("current index = %d, want 1", idx)
+	}
+	if m.status.text != "No available tracks" {
+		t.Fatalf("status.text = %q, want %q", m.status.text, "No available tracks")
+	}
+}
+
+func modelAfterProviderPlaylistLoadWhilePlaying(t *testing.T) (Model, *playbackFakeEngine) {
+	t.Helper()
+
+	player := &playbackFakeEngine{playing: true}
+	p := playlist.New()
+	p.Replace([]playlist.Track{
+		{Title: "Old", Path: "old.mp3", DurationSecs: 180},
+	})
+	p.SetIndex(0)
+
+	m := Model{
+		player:   player,
+		playlist: p,
+		provider: commandsTestProvider{name: "Test"},
+		vis:      ui.NewVisualizer(float64(player.SampleRate())),
+	}
+	m.requests.tracks = 1
+
+	updated, _ := m.Update(tracksLoadedMsg{
+		tracks: []playlist.Track{
+			{Title: "New 1", Path: "new1.mp3", DurationSecs: 180},
+			{Title: "New 2", Path: "new2.mp3", DurationSecs: 180},
+		},
+		providerName: "Test",
+		gen:          1,
+	})
+	m = updated.(Model)
+
+	return m, player
+}
+
+func TestProviderPlaylistLoadWhilePlayingKeepsNowPlayingTrack(t *testing.T) {
+	m, player := modelAfterProviderPlaylistLoadWhilePlaying(t)
+
+	track, idx := m.currentPlaybackTrack()
+	if idx < 0 || track.Title != "Old" {
+		t.Fatalf("currentPlaybackTrack() = (%q,%d), want old playing track", track.Title, idx)
+	}
+	if !m.playbackDetached {
+		t.Fatal("playbackDetached = false, want true")
+	}
+	if player.clearPreloadCalls != 1 {
+		t.Fatalf("ClearPreload calls = %d, want 1", player.clearPreloadCalls)
+	}
+	tracks := m.playlist.Tracks()
+	if len(tracks) != 2 || tracks[0].Title != "New 1" || tracks[1].Title != "New 2" {
+		t.Fatalf("playlist tracks = %#v, want new provider playlist only", tracks)
+	}
+	if info := m.renderTrackInfo(); !strings.Contains(info, "Old") {
+		t.Fatalf("renderTrackInfo() = %q, want old playing track", info)
+	}
+}
+
+func TestNextAfterProviderPlaylistLoadStartsFirstNewTrack(t *testing.T) {
+	m, player := modelAfterProviderPlaylistLoadWhilePlaying(t)
+
+	cmd := m.nextTrack()
+	if cmd != nil {
+		_ = cmd()
+	}
+
+	if len(player.playCalls) == 0 || player.playCalls[0] != "new1.mp3" {
+		t.Fatalf("playCalls = %v, want first new track", player.playCalls)
+	}
+	if m.playbackDetached {
+		t.Fatal("playbackDetached = true, want false")
+	}
+	track, _ := m.currentPlaybackTrack()
+	if track.Title != "New 1" {
+		t.Fatalf("currentPlaybackTrack() = %q, want New 1", track.Title)
+	}
+}
+
+func TestPreloadAfterProviderPlaylistLoadUsesFirstNewTrack(t *testing.T) {
+	m, player := modelAfterProviderPlaylistLoadWhilePlaying(t)
+
+	cmd := m.preloadNext()
+	if cmd == nil {
+		t.Fatal("preloadNext() = nil, want preload command")
+	}
+	_ = cmd()
+
+	if len(player.preloadCalls) != 1 || player.preloadCalls[0] != "new1.mp3" {
+		t.Fatalf("preloadCalls = %v, want first new track", player.preloadCalls)
+	}
+}
+
+func TestBeginPlaybackTrackFetchesEmbeddedLyricsWithoutNetworkMetadata(t *testing.T) {
+	m := Model{lyrics: lyricsState{visible: true}}
+	track := playlist.Track{Title: "Local", EmbeddedLyrics: "Line one\nLine two"}
+
+	_, cmd := m.beginPlaybackTrack(track)
+	if cmd == nil {
+		t.Fatal("beginPlaybackTrack() command = nil, want embedded lyrics command")
+	}
+	if !m.lyrics.loading {
+		t.Fatal("lyrics.loading = false, want true")
+	}
+
+	msg, ok := cmd().(lyricsLoadedMsg)
+	if !ok {
+		t.Fatalf("lyrics command returned %T, want lyricsLoadedMsg", msg)
+	}
+	if msg.err != nil {
+		t.Fatalf("lyrics command error = %v", msg.err)
+	}
+	if len(msg.lines) != 2 || msg.lines[0].Text != "Line one" || msg.lines[1].Text != "Line two" {
+		t.Fatalf("lyrics lines = %+v, want embedded plain text", msg.lines)
+	}
+}
+
+func TestGaplessAdvanceRefreshesLyricsAndArtwork(t *testing.T) {
+	player := &playbackFakeEngine{playing: true, gaplessAdvanced: true}
+	p := playlist.New()
+	p.Replace([]playlist.Track{
+		{Title: "Old", Artist: "Artist", Path: "old.mp3", DurationSecs: 180, EmbeddedLyrics: "old lyric", AlbumArtURL: "file:///old.jpg"},
+		{Title: "New", Artist: "Artist", Path: "new.mp3", DurationSecs: 180, EmbeddedLyrics: "[00:01.00]new lyric", AlbumArtURL: "file:///new.jpg"},
+	})
+	p.SetIndex(0)
+
+	m := Model{
+		player:   player,
+		playlist: p,
+		vis:      ui.NewVisualizer(float64(player.SampleRate())),
+		lyrics: lyricsState{
+			visible: true,
+			query:   "Artist\nOld",
+		},
+	}
+	m.setPlaybackTrack(p.Tracks()[0])
+	m.lyrics.lines = nil
+
+	next, cmd := m.Update(tickMsg(time.Now()))
+	m2 := next.(Model)
+	if cmd == nil {
+		t.Fatal("Update() command = nil, want lyric/preload/tick batch")
+	}
+
+	track, _ := m2.currentPlaybackTrack()
+	if track.Title != "New" {
+		t.Fatalf("current track = %q, want New", track.Title)
+	}
+	if track.AlbumArtURL != "file:///new.jpg" {
+		t.Fatalf("AlbumArtURL = %q, want new artwork", track.AlbumArtURL)
+	}
+	if m2.lyrics.query != "Artist\nNew" {
+		t.Fatalf("lyrics.query = %q, want new track query", m2.lyrics.query)
+	}
+	if !m2.lyrics.loading {
+		t.Fatal("lyrics.loading = false, want true for new track fetch")
+	}
+}

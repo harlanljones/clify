@@ -4,7 +4,8 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://pypi.org/project/clify/)
 [![PyPI version](https://img.shields.io/pypi/v/clify.svg)](https://pypi.org/project/clify/)
 
-`clify` is a Python CLI and reference implementation of the **Metric-Driven Agent-Driven Development (ADD)** framework specified in [AGENTS.md](https://github.com/harlan/clify/blob/main/AGENTS.md). It provides extended Spotify library aggregation, natural-language playback control, and deterministic SLA guardrails, designed as the companion CLI to [`cliamp-clify`](https://github.com/harlan/clify/tree/main/cliamp-clify).
+`clify` is a Python CLI and reference implementation of the **Metric-Driven Agent-Driven Development (ADD)** framework specified in [AGENTS.md](https://github.com/harlanljones/clify/blob/main/AGENTS.md). It provides extended Spotify library aggregation, natural-language playback control, and deterministic SLA guardrails, designed as the companion CLI to [`cliamp-clify`](https://github.com/harlanljones/clify/tree/main/cliamp-clify).
+
 
 ---
 
@@ -28,7 +29,8 @@ pip install clify
 
 Or from the monorepo source:
 ```bash
-git clone https://github.com/harlan/clify.git
+git clone https://github.com/harlanljones/clify.git
+
 cd clify/packages/clify
 pip install -e ".[test]"
 ```
@@ -108,4 +110,5 @@ pytest
 
 ## License
 
-[MIT](https://github.com/harlan/clify/blob/main/LICENSE) © 2026 harlan
+[MIT](https://github.com/harlanljones/clify/blob/main/LICENSE) © 2026 harlan
+

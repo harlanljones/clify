@@ -32,6 +32,7 @@ Both `cliamp-clify` and `clify` are designed with defensive credential handling 
 If you discover a potential security vulnerability in this project:
 
 1. **Do not disclose it publicly** in public GitHub issues, discussions, or pull requests.
-2. Send a report directly to the maintainers or use [GitHub Private Vulnerability Reporting](https://github.com/harlan/clify/security/advisories/new).
+2. Send a report directly to the maintainers or use [GitHub Private Vulnerability Reporting](https://github.com/harlanljones/clify/security/advisories/new).
+
 3. Include detailed reproduction steps, the affected component (`cliamp-clify` or `clify`), and sample payloads if applicable.
 4. Maintainers will acknowledge your report within 48 hours and coordinate a fix and release.

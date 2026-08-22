@@ -1,0 +1,189 @@
+# CLIAMP configuration
+# Copy to ~/.config/cliamp/config.toml
+
+# Default volume in dB (range: volume_min to +6)
+volume = 0
+
+# Minimum volume floor in dB (range: -90 to 0, default: -50)
+# volume_min = -50
+
+# Whether the visualizer bar height follows the current volume (default: true).
+# Set to false to keep bars visible at low volumes.
+# vis_volume_linked = true
+
+# Repeat mode: "off", "all", or "one"
+repeat = "off"
+
+# Start with shuffle enabled
+shuffle = false
+
+# Start with mono output (L+R downmix)
+mono = false
+
+# Initial directory for the file browser ('o' key). 
+# Supports environment variables ($HOME) and tilde expansion (~/Music).
+# initial_directory = "~/Music"
+
+# Shift+Left/Right seek jump in seconds (6-600)
+seek_large_step_sec = 30
+
+# Advanced audio settings (most users don't need to change these)
+# sample_rate = 0          # 0=auto-detect, or 22050/44100/48000/96000/192000
+# buffer_ms = 250          # speaker buffer in ms (50-5000; try 2000 for unstable radio streams)
+# resample_quality = 4     # 1-4, where 4 is best
+# bit_depth = 16           # 16 or 32 (for FFmpeg-decoded formats)
+
+# EQ preset: "Flat", "Rock", "Pop", "Jazz", "Classical",
+#             "Bass Boost", "Treble Boost", "Vocal", "Electronic", "Acoustic"
+# Leave empty or "Custom" to use manual eq values below
+eq_preset = "Flat"
+
+# 10-band EQ gains in dB (range: -12 to 12)
+# Bands: 70Hz, 180Hz, 320Hz, 600Hz, 1kHz, 3kHz, 6kHz, 12kHz, 14kHz, 16kHz
+# Only used when eq_preset is "Custom" or empty
+eq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+# Default provider on startup: "spotify" (default), "radio", "navidrome", "qobuz", "plex", "jellyfin", "emby", "soundcloud", "netease", or a YouTube provider
+# provider = "spotify"
+
+# Compact mode: cap UI width at 80 columns (default: fluid/full-width)
+# compact = true
+
+# UI theme name (check ~/.config/cliamp/themes/ for available themes)
+# theme = "Tokyo Night"
+
+# Visualizer mode: Bars, BarsDot, Rain, BarsOutline, Bricks, Columns, ClassicPeak, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, Sakura, Firework, Bubbles, Logo, Terrain, Scope, Heartbeat, Butterfly, Ascii, Firefly, Mosaic, Sand, Geyser, ClassicLED, Stereo, or None
+# visualizer = "Bars"
+
+# Reduce CPU usage by lowering UI cadence and disabling visualization.
+# low_power = false
+
+# Log level: "debug", "info", "warn", or "error" (default "info")
+# Logs are written to ~/.config/cliamp/cliamp.log
+# log_level = "info"
+
+# ---
+# Spotify (optional)
+# Requires a Spotify Premium account.
+#
+# Recommended: register your own Spotify Developer app at
+# developer.spotify.com/dashboard with redirect URI
+# http://127.0.0.1:19872/login, then uncomment the section below with
+# your client_id. You get a private Web API rate-limit quota for library
+# and playlist requests. Playback is authorized separately with Spotify's
+# built-in identity, so the first sign-in completes two steps in one tab.
+# [spotify]
+# client_id = "your-spotify-app-client-id"
+# bitrate = 320
+#
+# Note: apps registered after Nov 27, 2024 in Development Mode can't use
+# /v1/search (Spotify returns "Invalid limit"). Playback is unaffected.
+#
+# Alternative: drop client_id to use cliamp's built-in fallback (the
+# librespot keymaster client_id). It still has search access, but the
+# rate-limit quota is shared with every librespot-based client and you
+# may see occasional 429s.
+
+# ---
+# Qobuz (optional)
+# Requires an active Qobuz subscription.
+#
+# Enable the provider, then run cliamp, select Qobuz, and press Enter to
+# sign in. A browser window opens for Qobuz's OAuth login; credentials are
+# cached at ~/.config/cliamp/qobuz_credentials.json and refreshed silently
+# on later launches. Run "cliamp qobuz reset" to clear them.
+# [qobuz]
+# enabled = true
+#
+# Stream quality (format_id). Default 6.
+#   5  = MP3 320kbps
+#   6  = FLAC 16-bit/44.1kHz (CD)
+#   7  = FLAC 24-bit up to 96kHz
+#   27 = FLAC 24-bit up to 192kHz (Hi-Res)
+# quality = 6
+
+# ---
+# Navidrome / Subsonic server (optional)
+# When configured, cliamp opens the playlist browser on startup and streams
+# tracks directly from your server.
+# These values take precedence over the NAVIDROME_URL / NAVIDROME_USER /
+# NAVIDROME_PASS environment variables when both are present.
+# [navidrome]
+# url      = "https://music.example.com"
+# user     = "alice"
+# password = "secret"
+#
+# Album browse sort order for the Navidrome browser (press N to open).
+# Valid values: alphabeticalByName, alphabeticalByArtist, newest, recent,
+#               frequent, starred, byYear, byGenre
+# This is updated automatically when you press [s] inside the browser.
+# browse_sort = alphabeticalByName
+
+# ---
+# SoundCloud (optional, opt-in)
+# Off by default. Set `enabled = true` to register the provider; then search,
+# URL playback, and a curated browse list work via yt-dlp. Set `user` to
+# expose your profile's Tracks, Likes, and Reposts. Set `cookies_from` to use
+# your browser's signed-in session for Go+ / subscriber-gated tracks.
+# [soundcloud]
+# enabled = true
+# user = "yourname"
+# cookies_from = "firefox"   # chrome, brave, edge, opera, safari, vivaldi…
+
+# ---
+# NetEase Cloud Music (optional, opt-in)
+# Sign in to music.163.com in your browser, then run `cliamp setup` or set
+# cookies_from manually. The provider lists your account playlists, saved
+# playlists, liked songs, and public charts. Playback uses yt-dlp.
+# [netease]
+# enabled = true
+# cookies_from = "chrome"
+# user_id = "optional-account-user-id"
+
+# ---
+# Plex Media Server (optional)
+# [plex]
+# url   = "http://192.168.1.10:32400"
+# token = "xxxxxxxxxxxxxxxxxxxx"
+#
+# Restrict to specific music libraries (comma-separated, case-insensitive).
+# When omitted or empty, all music libraries are loaded.
+# libraries = ["Music", "Jazz"]
+
+# ---
+# Jellyfin server (optional)
+# Authenticate either with a long-lived API token or with your username/password.
+# user_id is optional and is discovered automatically when omitted.
+# [jellyfin]
+# url = "https://jellyfin.example.com"
+# user = "alice"
+# password = "secret"
+# token = "optional-api-token"
+# user_id = "optional-user-id"
+
+# ---
+# YouTube Music (optional)
+# Built-in fallback credentials work for most users — no config needed.
+# Set your own Google Cloud OAuth client to avoid shared rate limits:
+#
+# [ytmusic]
+# client_id = "your-google-oauth-client-id"
+# client_secret = "your-google-oauth-client-secret"
+#
+# Browser cookies for age-restricted / private content:
+# cookies_from = "chrome"
+#
+# Resolve full playlists from list= URLs (default true).
+# When false, only the single video is resolved and playlist links are stripped.
+# expand_playlist = true
+
+# ---
+# Emby server (optional)
+# Authenticate either with an API key or with your username/password.
+# user_id is optional and is discovered automatically when omitted.
+# [emby]
+# url = "https://emby.example.com"
+# user = "alice"
+# password = "secret"
+# token = "optional-api-key"
+# user_id = "optional-user-id"

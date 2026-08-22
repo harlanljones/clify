@@ -23,11 +23,12 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/harlan/clify"
-Repository = "https://github.com/harlan/clify.git"
-Documentation = "https://github.com/harlan/clify/blob/main/README.md"
-"Bug Tracker" = "https://github.com/harlan/clify/issues"
-Changelog = "https://github.com/harlan/clify/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/harlanljones/clify"
+Repository = "https://github.com/harlanljones/clify.git"
+Documentation = "https://github.com/harlanljones/clify/blob/main/README.md"
+"Bug Tracker" = "https://github.com/harlanljones/clify/issues"
+Changelog = "https://github.com/harlanljones/clify/blob/main/CHANGELOG.md"
+
 
 [project.optional-dependencies]
 

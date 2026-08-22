@@ -7,9 +7,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/harlan/clify.git",
+    "url": "https://github.com/harlanljones/clify.git",
     "directory": "packages/clify"
   },
+
 
   "scripts": {
     "build": "python3 -m pip install -e .",

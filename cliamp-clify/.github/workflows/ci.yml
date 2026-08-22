@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: sudo apt-get update && sudo apt-get install -y libasound2-dev libflac-dev libvorbis-dev libogg-dev shellcheck
+      - run: go install honnef.co/go/tools/cmd/staticcheck@v0.6.1
+      - run: go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+      - run: make fmt-check vet staticcheck security
+      - run: go test -count=1 -race ./...
+      - run: make coverage
+      - run: shellcheck install.sh
+      - run: git diff --exit-code
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            goos: darwin
+          - os: windows-2025
+            goos: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install codec libs (macOS)
+        if: matrix.goos == 'darwin'
+        run: brew install flac libvorbis libogg pkg-config
+      - run: go test -count=1 ./...
+      - run: go build -trimpath ./...

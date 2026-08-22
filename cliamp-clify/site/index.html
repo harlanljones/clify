@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLIAMP — Terminal Music Player</title>
+<meta name="description" content="A retro terminal music player inspired by Winamp 2.x. Play local files, YouTube, Spotify, Qobuz, Plex, Jellyfin, Emby, Navidrome, SoundCloud, NetEase, and 30,000+ radio stations with a spectrum visualizer and 10-band EQ.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="CLIAMP — Terminal Music Player">
+<meta property="og:description" content="A retro terminal music player inspired by Winamp 2.x. Play YouTube, Spotify, Qobuz, Plex, Jellyfin, Emby, SoundCloud, NetEase, and 30,000+ radio stations from your terminal with a spectrum visualizer and 10-band EQ.">
+<meta property="og:image" content="https://cliamp.stream/og-image.png">
+<meta property="og:url" content="https://cliamp.stream">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="CLIAMP — Terminal Music Player">
+<meta name="twitter:description" content="A retro terminal music player inspired by Winamp 2.x. Play YouTube, Spotify, Qobuz, Plex, Jellyfin, Emby, SoundCloud, NetEase, and 30,000+ radio stations from your terminal with a spectrum visualizer and 10-band EQ.">
+<meta name="twitter:image" content="https://cliamp.stream/og-image.png">
+
+<style>
+/* ══════════════════════════════════════════════════════════════
+   cliamp // powered-on instrument
+   A CRT tube bolted into a 90s hi-fi faceplate.
+   Committed single dark world (a CRT is dark by nature).
+   ══════════════════════════════════════════════════════════════ */
+:root{
+  color-scheme:dark;
+
+  --ink:#080a08;
+  --ink-2:#0b0d0a;
+  --panel:#111410;
+  --panel-2:#171b14;
+  --panel-3:#1e231a;
+  --bevel-hi:rgba(190,255,210,.05);
+  --bevel-lo:rgba(0,0,0,.55);
+  --line:#262c20;
+  --line-hi:#39422f;
+
+  --fg:#c3c7ba;
+  --fg-hi:#e9ece0;
+  --fg-max:#fbfdf5;
+  --mute:#6e7566;
+  --mute-2:#474d40;
+
+  --green:#37f5a0;
+  --green-hi:#8bffc6;
+  --green-glow:rgba(55,245,160,.35);
+  --green-dim:rgba(55,245,160,.10);
+  --amber:#ffb454;
+  --amber-hi:#ffd39a;
+  --amber-glow:rgba(255,180,84,.32);
+  --amber-dim:rgba(255,180,84,.10);
+  --cyan:#4fd6ff;
+  --red:#ff5d6c;
+  --pink:#ff66cc;
+  --purple:#c3a6ff;
+
+  --mono:"SF Mono","JetBrains Mono","Cascadia Code","Fira Code","IBM Plex Mono","Consolas","Liberation Mono",monospace;
+  --wrap:1080px;
+  --engrave:0 1px 0 var(--bevel-hi),0 -1px 1px var(--bevel-lo);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+body{
+  background:var(--ink);color:var(--fg);
+  font-family:var(--mono);font-size:14px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;position:relative;min-height:100vh;
+  background-image:
+    radial-gradient(120% 80% at 12% -5%,rgba(55,245,160,.05),transparent 55%),
+    radial-gradient(120% 90% at 88% 110%,rgba(255,180,84,.045),transparent 55%),
+    radial-gradient(140% 120% at 50% 40%,transparent 55%,rgba(0,0,0,.55) 100%);
+  background-attachment:fixed;
+}
+::selection{background:var(--green);color:var(--ink)}
+
+/* CRT atmosphere */
+.crt-scan,.crt-grain{position:fixed;inset:0;pointer-events:none;z-index:9998}
+.crt-scan{background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0 2px,rgba(0,0,0,.14) 2px 3px);
+  mix-blend-mode:multiply;animation:scan 8s linear infinite}
+.crt-grain{opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+@keyframes scan{to{background-position:0 300px}}
+@media (prefers-reduced-motion:reduce){.crt-scan{animation:none}}
+
+.chassis{position:fixed;inset:0;pointer-events:none;z-index:9997;
+  box-shadow:inset 0 0 0 1px rgba(120,140,110,.10),inset 0 0 90px rgba(0,0,0,.7)}
+.screw{position:fixed;width:12px;height:12px;border-radius:50%;z-index:9999;pointer-events:none;
+  background:radial-gradient(circle at 35% 30%,#3a4033,#14170f 70%);
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.12),0 1px 2px rgba(0,0,0,.6)}
+.screw::after{content:"";position:absolute;inset:3px;border-top:1px solid rgba(0,0,0,.6);transform:rotate(25deg)}
+.screw.tl{top:14px;left:14px}.screw.tr{top:14px;right:14px}
+.screw.bl{bottom:14px;left:14px}.screw.br{bottom:14px;right:14px}
+@media (max-width:720px){.screw{display:none}}
+
+a{color:var(--cyan);text-decoration:none;transition:color .18s}
+a:hover{color:var(--amber-hi)}
+code{font-family:var(--mono)}
+:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 40px;position:relative;z-index:1}
+@media (max-width:720px){.wrap{padding:0 18px}}
+
+/* ═══════════ NAV ═══════════ */
+.nav{position:sticky;top:0;z-index:200;
+  background:linear-gradient(to bottom,rgba(20,24,17,.92),rgba(9,11,8,.92));
+  backdrop-filter:blur(14px) saturate(130%);-webkit-backdrop-filter:blur(14px) saturate(130%);
+  border-bottom:1px solid var(--line);box-shadow:0 1px 0 var(--bevel-hi),0 6px 24px rgba(0,0,0,.5)}
+.nav-in{max-width:var(--wrap);margin:0 auto;padding:0 40px;height:58px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px}
+@media (max-width:720px){.nav-in{padding:0 18px}}
+.brand{display:inline-flex;align-items:center;gap:11px;color:var(--fg-hi);
+  font-weight:800;font-size:15px;letter-spacing:3px;text-shadow:var(--engrave)}
+.brand b{color:var(--green);text-shadow:0 0 12px var(--green-glow)}
+.led{width:8px;height:8px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 10px var(--green-glow),0 0 2px #fff inset;animation:blink 2.4s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.led{animation:none}}
+.nav-links{display:flex;align-items:center;gap:2px}
+.nav-links a{color:var(--mute);font-size:10px;letter-spacing:2px;text-transform:uppercase;
+  font-weight:700;padding:8px 12px;transition:color .16s,text-shadow .16s}
+.nav-links a:hover{color:var(--green);text-shadow:0 0 10px var(--green-glow)}
+.nav-links .ext{color:var(--mute-2)}
+.nav-toggle{display:none;background:var(--panel-2);border:1px solid var(--line-hi);color:var(--fg);
+  width:36px;height:34px;cursor:pointer;font-family:inherit;font-size:16px;border-radius:3px}
+@media (max-width:820px){
+  .nav-toggle{display:block}
+  .nav-links{position:absolute;top:58px;left:0;right:0;flex-direction:column;gap:0;
+    background:rgba(9,11,8,.98);border-bottom:1px solid var(--line);padding:6px 0;
+    max-height:0;overflow:hidden;transition:max-height .25s ease}
+  .nav-links.open{max-height:460px}
+  .nav-links a{padding:12px 24px;border-bottom:1px solid var(--line);font-size:11px}
+}
+
+/* ═══════════ SECTION SCAFFOLD ═══════════ */
+section{padding:84px 0;position:relative}
+@media (max-width:720px){section{padding:56px 0}}
+
+.strip{display:flex;align-items:center;gap:16px;margin-bottom:40px}
+.strip-idx{font-size:13px;font-weight:800;letter-spacing:1px;color:var(--amber);
+  padding:5px 9px;border:1px solid var(--line-hi);border-radius:3px;
+  background:linear-gradient(to bottom,var(--panel-2),var(--panel));
+  box-shadow:var(--engrave),inset 0 0 8px rgba(0,0,0,.4);
+  font-variant-numeric:tabular-nums;text-shadow:0 0 10px var(--amber-glow)}
+.strip-name{font-size:clamp(22px,3.4vw,34px);font-weight:800;letter-spacing:-.5px;
+  color:var(--fg-hi);text-shadow:var(--engrave)}
+.strip-name em{font-style:normal;color:var(--green);text-shadow:0 0 16px var(--green-glow)}
+.strip-rule{flex:1;height:2px;border-radius:2px;
+  background:linear-gradient(to right,var(--line-hi),var(--line) 55%,transparent);box-shadow:0 1px 0 var(--bevel-hi)}
+.strip-meter{display:flex;gap:2px;align-items:flex-end;height:20px}
+.strip-meter i{width:3px;background:var(--green);opacity:.8;border-radius:1px;
+  box-shadow:0 0 6px var(--green-glow);animation:vu 1.1s ease-in-out infinite}
+.strip-meter i:nth-child(2){animation-delay:.15s}
+.strip-meter i:nth-child(3){animation-delay:.3s;background:var(--amber);box-shadow:0 0 6px var(--amber-glow)}
+.strip-meter i:nth-child(4){animation-delay:.45s;background:var(--amber);box-shadow:0 0 6px var(--amber-glow)}
+.strip-meter i:nth-child(5){animation-delay:.6s;background:var(--red);box-shadow:0 0 6px rgba(255,93,108,.4)}
+@keyframes vu{0%,100%{height:5px}50%{height:20px}}
+@media (prefers-reduced-motion:reduce){.strip-meter i{animation:none;height:12px}}
+.strip.rev{flex-direction:row-reverse}
+.strip.rev .strip-rule{background:linear-gradient(to left,var(--line-hi),var(--line) 55%,transparent)}
+@media (max-width:600px){.strip-meter{display:none}}
+
+.kicker{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--amber);font-weight:700;margin-bottom:14px}
+.kicker::before{content:"\25AA  ";color:var(--mute-2)}
+.lede{max-width:62ch;color:var(--fg);font-size:14px;line-height:1.85;margin-bottom:38px}
+.lede em{color:var(--amber-hi);font-style:normal}
+.lede code{color:var(--green-hi);background:var(--panel-2);padding:1px 6px;border-radius:3px;font-size:12px}
+
+kbd{color:var(--ink);background:var(--fg-hi);padding:1px 6px;border-radius:3px;
+  font-family:inherit;font-size:11px;font-weight:800;box-shadow:0 1px 0 rgba(0,0,0,.5)}
+.path{color:var(--amber-hi)}
+
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+
+/* ═══════════ HERO ═══════════ */
+.hero{padding:66px 0 40px;overflow:hidden}
+.hero-grid{display:grid;grid-template-columns:1fr 1.05fr;gap:52px;align-items:center}
+@media (max-width:900px){.hero-grid{grid-template-columns:1fr;gap:36px}}
+.hero-eyebrow{font-size:11px;letter-spacing:5px;text-transform:uppercase;color:var(--amber);
+  font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:9px}
+.hero-word{font-size:clamp(52px,9vw,104px);line-height:.86;font-weight:800;letter-spacing:-3px;
+  color:var(--fg-max);text-shadow:var(--engrave);margin-bottom:6px}
+.hero-word span{color:var(--green);text-shadow:0 0 34px var(--green-glow),0 0 90px rgba(55,245,160,.15)}
+.hero-sub{font-size:15px;color:var(--fg-hi);letter-spacing:.5px;margin:18px 0 14px;font-weight:600}
+.hero-sub em{color:var(--amber);font-style:normal}
+.hero-desc{max-width:46ch;color:var(--fg);line-height:1.8;font-size:13.5px;margin-bottom:30px}
+.hero-desc em{color:var(--amber-hi);font-style:normal}
+.hero-cta{display:flex;gap:14px;flex-wrap:wrap}
+@media (max-width:900px){.hero-desc{max-width:none}}
+
+.btn{display:inline-flex;align-items:center;gap:10px;font-family:inherit;font-size:12px;
+  letter-spacing:2px;text-transform:uppercase;font-weight:800;padding:14px 26px;cursor:pointer;
+  border:1px solid;border-radius:4px;transition:transform .15s,box-shadow .2s,background .2s,color .2s}
+.btn:active{transform:translateY(1px)}
+.btn-go{color:var(--ink);border-color:var(--green);
+  background:linear-gradient(to bottom,var(--green-hi),var(--green));
+  box-shadow:0 0 20px var(--green-glow),inset 0 1px 0 rgba(255,255,255,.4)}
+.btn-go:hover{box-shadow:0 0 34px var(--green-glow),inset 0 1px 0 rgba(255,255,255,.5);color:var(--ink)}
+.btn-ghost{color:var(--fg-hi);background:linear-gradient(to bottom,var(--panel-2),var(--panel));
+  border-color:var(--line-hi);box-shadow:var(--engrave)}
+.btn-ghost:hover{color:var(--green);border-color:var(--green);text-shadow:0 0 10px var(--green-glow)}
+.btn .ar{font-size:14px}
+
+/* ── the CRT device / terminal player ── */
+.tty{position:relative;border-radius:14px;padding:14px;
+  background:linear-gradient(155deg,#20261b,#0c0f0a);
+  box-shadow:inset 0 1px 0 var(--bevel-hi),0 40px 90px rgba(0,0,0,.65),0 0 0 1px rgba(0,0,0,.5);
+  animation:boot 1s ease-out both}
+@keyframes boot{from{opacity:0;transform:perspective(900px) rotateX(6deg) translateY(20px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.tty{animation:none}}
+.tty-head{display:flex;align-items:center;gap:10px;padding:2px 8px 12px;font-size:11px}
+.tty-head-prompt{color:var(--green);font-weight:800}
+.tty-head-cmd{color:var(--fg-hi);font-weight:700}
+.tty-head-flag{color:var(--mute)}
+.tty-head-spacer{flex:1}
+.tty-head-pid{color:var(--mute-2);letter-spacing:1px}
+.rp-play{display:inline-flex;align-items:center;justify-content:center;width:30px;height:24px;
+  border-radius:4px;border:1px solid var(--line-hi);color:var(--green);cursor:pointer;font-family:inherit;
+  font-size:11px;background:linear-gradient(to bottom,var(--panel-3),var(--panel));box-shadow:var(--engrave);transition:all .15s}
+.rp-play:hover{border-color:var(--green);box-shadow:0 0 12px var(--green-glow)}
+.rp-play .i-stop,.rp-play .i-load{display:none}
+.radio-player.playing .rp-play .i-play{display:none}
+.radio-player.playing .rp-play .i-stop{display:inline}
+.radio-player.loading .rp-play .i-play{display:none}
+.radio-player.loading .rp-play .i-load{display:inline;animation:blink 1s infinite}
+
+.tty-body{position:relative;border-radius:8px;overflow:hidden;padding:16px 18px;
+  font-size:12.5px;line-height:1.5;color:var(--fg);border:1px solid #000;
+  background:radial-gradient(120% 120% at 50% 0%,rgba(55,245,160,.05),transparent 55%),#060806}
+.tty-body::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
+  background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.16) 2px 3px)}
+.tty-body>*{position:relative;z-index:1}
+
+.t-row{display:flex;align-items:baseline;gap:10px;white-space:nowrap}
+.t-spacer{height:9px}
+.t-title{color:var(--green);font-weight:800;letter-spacing:2px;text-shadow:0 0 12px var(--green-glow)}
+.t-focus{margin-left:auto;color:var(--mute)}
+.t-track-row{gap:8px}
+.t-track-sym{color:var(--green);flex-shrink:0}
+.t-track{color:var(--fg-hi);font-weight:600;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.t-time-row{cursor:pointer;transition:background .18s;margin:0 -8px;padding:2px 8px;border-radius:4px}
+.t-time-row:hover{background:rgba(55,245,160,.06)}
+.t-time{color:var(--mute)}
+.t-status{margin-left:auto;font-weight:700}
+.t-status-stopped{color:var(--mute)}
+.t-status-stopped em{color:var(--mute);font-style:normal;font-size:11px;opacity:.7}
+.t-status-playing{color:var(--green);display:none;text-shadow:0 0 8px var(--green-glow)}
+.t-status-loading{color:var(--amber);display:none;text-shadow:0 0 6px var(--amber-glow)}
+.radio-player.playing .t-status-stopped,.radio-player.loading .t-status-stopped{display:none}
+.radio-player.playing .t-status-playing{display:inline}
+.radio-player.loading .t-status-loading{display:inline;animation:blink 1s infinite}
+
+#ascii-viz{font-size:clamp(9px,1.3vw,13px);line-height:1;letter-spacing:1px;user-select:none;
+  display:block;text-align:center;margin:6px 0;
+  background:linear-gradient(to bottom,var(--red) 0%,var(--red) 18%,var(--amber) 38%,var(--amber) 58%,var(--green) 80%,var(--green) 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
+  filter:drop-shadow(0 0 5px rgba(55,245,160,.22))}
+
+.t-seek{display:flex;align-items:center;justify-content:center;color:var(--amber);font-weight:700;
+  font-size:11px;text-shadow:0 0 6px var(--amber-glow);overflow:hidden;white-space:nowrap;margin-top:4px}
+.t-seek-fill{color:var(--amber);opacity:.85;letter-spacing:-1px}
+.t-seek-label{color:var(--amber);font-weight:800;letter-spacing:2px;padding:0 8px}
+
+.t-eqvol{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}
+.t-eq-inline{display:inline-flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.t-eq-bands{display:inline-flex;gap:5px;margin-left:4px;color:var(--amber-hi);font-size:12px;font-variant-numeric:tabular-nums}
+.t-vol-inline{display:inline-flex;align-items:center;gap:8px;margin-left:auto;flex:1;min-width:180px;max-width:280px}
+.t-vol-db{font-variant-numeric:tabular-nums;color:var(--mute)}
+.t-label{color:var(--mute);font-weight:700}
+.t-dim{color:var(--mute)}
+.t-active{color:var(--amber);font-weight:800;text-shadow:0 0 6px var(--amber-glow)}
+.t-fg{color:var(--fg-hi)}
+
+.rp-vol{-webkit-appearance:none;appearance:none;flex:1;height:13px;background:transparent;
+  border:none;outline:none;cursor:pointer;padding:0;position:relative}
+.rp-vol::-webkit-slider-runnable-track{height:13px;background:transparent;
+  background-image:repeating-linear-gradient(to right,var(--line-hi) 0 2px,transparent 2px 3px);background-size:100% 13px}
+.rp-vol::-moz-range-track{height:13px;background-image:repeating-linear-gradient(to right,var(--line-hi) 0 2px,transparent 2px 3px)}
+.rp-vol::-webkit-slider-thumb{-webkit-appearance:none;width:4px;height:13px;background:var(--green);
+  box-shadow:0 0 8px var(--green-glow),-300px 0 0 -4px var(--green);border:none;cursor:pointer}
+.rp-vol::-moz-range-thumb{width:4px;height:13px;background:var(--green);
+  box-shadow:0 0 8px var(--green-glow),-300px 0 0 -4px var(--green);border:none;cursor:pointer}
+.rp-vol::-moz-range-progress{height:13px;background:var(--green);box-shadow:0 0 8px var(--green-glow)}
+
+.t-src-row{gap:6px;flex-wrap:wrap}
+.t-pill-static{color:var(--mute-2);font-weight:500;font-size:12px}
+
+.t-pl-header{color:var(--amber);font-weight:800;gap:6px;flex-wrap:wrap;text-shadow:0 0 6px var(--amber-glow)}
+.t-pl-header .t-dim{text-shadow:none;font-weight:400}
+.t-pl-item{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;color:var(--mute);
+  margin:0 -8px;padding:1px 8px;border-radius:4px;transition:background .15s,color .15s}
+.t-pl-item:hover{background:rgba(55,245,160,.06);color:var(--fg-hi)}
+.t-pl-item.active{color:var(--fg-hi);font-weight:700}
+.t-pl-mark{color:var(--green);visibility:hidden;display:inline-block;width:1ch;text-shadow:0 0 8px var(--green-glow)}
+.t-pl-item.active .t-pl-mark{visibility:visible}
+.t-pl-num{color:var(--mute-2)}
+.t-pl-item.active .t-pl-num{color:var(--green)}
+
+.t-help{gap:14px;flex-wrap:wrap;color:var(--mute);font-size:11px;margin-top:4px}
+.t-help-item{display:inline-flex;align-items:baseline;gap:5px}
+.t-bot{color:var(--mute-2);font-size:11px;margin-top:6px;justify-content:space-between;flex-wrap:wrap;gap:12px;
+  border-top:1px solid rgba(255,255,255,.05);padding-top:8px}
+.t-bot-right{color:var(--mute)}
+
+.tty-hint{text-align:center;margin:16px auto 0;font-size:11px;color:var(--mute);letter-spacing:.3px}
+.tty-hint code{color:var(--green-hi)}
+.tty-hint .p{color:var(--mute-2)}
+.tune-hint{text-align:center;margin-top:10px;font-size:11px;color:var(--amber);letter-spacing:1px}
+.tune-hint::before{content:"\25B8  "}
+
+/* sponsor */
+.sponsor{margin-top:46px;text-align:center}
+.sponsor img{max-width:100%;height:auto;opacity:.85;transition:opacity .2s}
+.sponsor a:hover img{opacity:1}
+
+/* ═══════════ TICKER ═══════════ */
+.ticker{border-block:1px solid var(--line);background:var(--ink-2);overflow:hidden;padding:14px 0;position:relative}
+.ticker::before,.ticker::after{content:"";position:absolute;top:0;bottom:0;width:80px;z-index:2;pointer-events:none}
+.ticker::before{left:0;background:linear-gradient(to right,var(--ink-2),transparent)}
+.ticker::after{right:0;background:linear-gradient(to left,var(--ink-2),transparent)}
+.ticker-track{display:flex;width:max-content;animation:slide 42s linear infinite}
+@media (prefers-reduced-motion:reduce){.ticker-track{animation:none}}
+.ticker-track span{color:var(--mute);font-size:12px;letter-spacing:1px;font-weight:600;
+  padding:0 22px;display:inline-flex;align-items:center;gap:22px;white-space:nowrap}
+.ticker-track span::after{content:"\25C8";color:var(--green);opacity:.5;font-size:8px}
+.ticker:hover .ticker-track{animation-play-state:paused}
+@keyframes slide{to{transform:translateX(-50%)}}
+
+/* ═══════════ DEMO ═══════════ */
+.demo-frame{position:relative;border-radius:12px;padding:12px;
+  background:linear-gradient(155deg,#20261b,#0c0f0a);box-shadow:inset 0 1px 0 var(--bevel-hi),0 30px 70px rgba(0,0,0,.55)}
+.demo-wrap{position:relative;border-radius:7px;overflow:hidden;border:1px solid #000;line-height:0}
+.demo-wrap::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:2;
+  background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.12) 2px 3px)}
+.demo-video{width:100%;height:auto;display:block;background:#050705}
+.sound-toggle{position:absolute;bottom:14px;right:14px;z-index:3;width:40px;height:40px;border-radius:50%;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--green);
+  background:rgba(8,10,8,.75);border:1px solid var(--green);box-shadow:0 0 16px var(--green-glow);
+  backdrop-filter:blur(4px);transition:all .18s}
+.sound-toggle:hover{background:var(--green);color:var(--ink)}
+.sound-toggle svg{width:20px;height:20px;fill:currentColor}
+.sound-toggle .icon-unmuted{display:none}
+.sound-toggle.unmuted .icon-muted{display:none}
+.sound-toggle.unmuted .icon-unmuted{display:block}
+
+/* ═══════════ INSTALL ═══════════ */
+.install-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+@media (max-width:640px){.install-grid{grid-template-columns:1fr}}
+.install-box{position:relative;cursor:pointer;padding:18px 20px;border-radius:8px;
+  background:linear-gradient(to bottom,var(--panel-2),var(--panel));border:1px solid var(--line);
+  box-shadow:var(--engrave),0 6px 18px rgba(0,0,0,.3);transition:transform .15s,border-color .2s,box-shadow .2s}
+.install-box:hover{transform:translateY(-2px);border-color:var(--green);box-shadow:0 0 22px var(--green-glow),var(--engrave)}
+.install-platform{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--amber);font-weight:800;margin-bottom:9px}
+.install-box code{display:block;color:var(--fg-hi);font-size:12.5px;overflow-x:auto}
+.install-box code .prompt{color:var(--green)}
+.copied-msg{position:absolute;top:14px;right:16px;color:var(--green);font-size:10px;letter-spacing:2px;
+  font-weight:800;opacity:0;transition:opacity .2s}
+.copied-msg.show{opacity:1}
+.install-note{margin-top:22px;color:var(--mute);font-size:12.5px;line-height:1.8;max-width:72ch}
+.install-note code{color:var(--amber-hi)}
+
+.next-step{margin-top:34px;padding:26px 28px;border-radius:10px;position:relative;overflow:hidden;
+  background:linear-gradient(150deg,var(--panel-2),var(--panel));border:1px solid var(--line);box-shadow:var(--engrave)}
+.next-step::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(var(--green),var(--amber));box-shadow:0 0 14px var(--green-glow)}
+.next-step-label{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--amber);font-weight:700;margin-bottom:10px}
+.next-step h3{font-size:20px;color:var(--fg-hi);font-weight:800;letter-spacing:-.3px;margin-bottom:10px;text-shadow:var(--engrave)}
+.next-step p{color:var(--fg);font-size:13px;line-height:1.8;max-width:72ch;margin-bottom:18px}
+.next-step .install-box{max-width:340px}
+
+/* ═══════════ SOURCES ═══════════ */
+.sources-intro{max-width:74ch;color:var(--fg);font-size:14px;line-height:1.85;margin-bottom:34px}
+.sources-intro em{color:var(--amber-hi);font-style:normal}
+.sources-intro code{color:var(--green-hi);background:var(--panel-2);padding:1px 6px;border-radius:3px;font-size:12px}
+.sources-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media (max-width:820px){.sources-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:520px){.sources-grid{grid-template-columns:1fr}}
+.source{position:relative;padding:18px 18px 18px 20px;border-radius:8px;overflow:hidden;
+  background:linear-gradient(to bottom,var(--panel-2),var(--panel));border:1px solid var(--line);
+  box-shadow:var(--engrave);transition:transform .15s,border-color .2s,box-shadow .2s}
+.source::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--src-color,var(--green));
+  box-shadow:0 0 12px var(--src-color,var(--green));opacity:.85}
+.source:hover{transform:translateY(-2px);border-color:var(--line-hi);box-shadow:0 0 20px rgba(0,0,0,.5),var(--engrave)}
+.source-badge{display:inline-block;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--mute);
+  font-weight:700;padding:3px 8px;border:1px solid var(--line-hi);border-radius:20px;margin-bottom:11px}
+.source-name{font-size:17px;font-weight:800;color:var(--fg-hi);letter-spacing:-.2px;margin-bottom:8px;text-shadow:var(--engrave)}
+.source-name::after{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;margin-left:8px;
+  background:var(--src-color,var(--green));box-shadow:0 0 8px var(--src-color,var(--green));vertical-align:middle}
+.source-desc{color:var(--mute);font-size:12px;line-height:1.7}
+.source-desc code{color:var(--green-hi);font-size:11px}
+.source-config{margin-top:32px;padding:26px 28px;border-radius:10px;
+  background:linear-gradient(150deg,var(--panel-2),var(--panel));border:1px solid var(--line);box-shadow:var(--engrave)}
+.source-config h3{font-size:18px;color:var(--fg-hi);font-weight:800;margin:8px 0 12px;text-shadow:var(--engrave)}
+.source-config p{color:var(--fg);font-size:13px;line-height:1.8;margin-bottom:14px;max-width:74ch}
+.source-config pre{background:#060806;border:1px solid var(--line);border-radius:6px;padding:14px 16px;overflow-x:auto;margin-bottom:14px}
+.source-config pre code{color:var(--green-hi);font-size:12px;line-height:1.7}
+
+/* ═══════════ FEATURES ═══════════ */
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;
+  border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--line)}
+@media (max-width:820px){.features-grid{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:520px){.features-grid{grid-template-columns:1fr}}
+.feature{padding:22px 20px;background:linear-gradient(to bottom,var(--panel),var(--ink-2));transition:background .2s}
+.feature:hover{background:linear-gradient(to bottom,var(--panel-2),var(--panel))}
+.feature-icon{font-size:18px;color:var(--green);margin-bottom:12px;width:38px;height:38px;
+  display:flex;align-items:center;justify-content:center;border-radius:7px;
+  background:var(--green-dim);border:1px solid var(--line-hi);box-shadow:0 0 12px rgba(55,245,160,.12)}
+.feature:nth-child(3n+2) .feature-icon{color:var(--amber);background:var(--amber-dim);box-shadow:0 0 12px rgba(255,180,84,.12)}
+.feature-name{font-size:13.5px;font-weight:800;color:var(--fg-hi);letter-spacing:-.2px;margin-bottom:8px;text-shadow:var(--engrave)}
+.feature p{color:var(--mute);font-size:12px;line-height:1.7}
+.feature p code{color:var(--green-hi);font-size:11px}
+
+/* ═══════════ COMMUNITY PLUGINS ═══════════ */
+.community-plugins{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+@media (max-width:640px){.community-plugins{grid-template-columns:1fr}}
+.community-plugin{display:flex;align-items:center;gap:16px;padding:16px 20px;border-radius:8px;
+  background:linear-gradient(to bottom,var(--panel-2),var(--panel));border:1px solid var(--line);
+  box-shadow:var(--engrave);transition:border-color .2s,transform .15s}
+.community-plugin:hover{border-color:var(--green);transform:translateY(-2px);box-shadow:0 0 18px var(--green-glow),var(--engrave)}
+.community-plugin-jack{width:30px;height:30px;border-radius:50%;flex-shrink:0;
+  background:radial-gradient(circle at 40% 35%,var(--panel-3),#050705 72%);
+  border:1px solid var(--line-hi);box-shadow:inset 0 0 6px rgba(0,0,0,.7);position:relative}
+.community-plugin-jack::after{content:"";position:absolute;inset:9px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green-glow)}
+.community-plugin-meta{min-width:0}
+.community-plugin-name{font-size:14px;font-weight:800}
+.community-plugin-name a{color:var(--fg-hi)}
+.community-plugin-name a:hover{color:var(--green)}
+.community-plugin-desc{color:var(--mute);font-size:11.5px}
+.community-plugin-author{margin-left:auto;font-size:11px;color:var(--mute-2);flex-shrink:0}
+.community-plugin-author a{color:var(--mute)}
+.community-plugin-author a:hover{color:var(--cyan)}
+
+/* ═══════════ RADIO ═══════════ */
+.radio-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+.radio-tabs{display:flex;gap:6px;flex-wrap:wrap}
+.radio-tab{font-family:inherit;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;
+  color:var(--mute);background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:6px 13px;cursor:pointer;transition:all .16s}
+.radio-tab:hover{color:var(--fg-hi);border-color:var(--line-hi)}
+.radio-tab.active{color:var(--ink);background:var(--green);border-color:var(--green);box-shadow:0 0 14px var(--green-glow)}
+.radio-live{display:inline-flex;align-items:center;gap:8px;color:var(--red);font-size:11px;letter-spacing:2px;font-weight:800}
+.radio-live-dot{width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 10px rgba(255,93,108,.6);animation:blink 1.4s infinite}
+.radio-error{color:var(--red);font-size:12px}
+
+.radio-stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+@media (max-width:640px){.radio-stats-row{grid-template-columns:1fr}}
+.radio-stat{padding:22px;border-radius:10px;text-align:center;
+  background:radial-gradient(120% 120% at 50% 0%,var(--green-dim),transparent 60%),linear-gradient(to bottom,var(--panel-2),var(--panel));
+  border:1px solid var(--line);box-shadow:var(--engrave),inset 0 0 24px rgba(0,0,0,.35)}
+.radio-stat-value{font-size:42px;font-weight:800;color:var(--fg-max);letter-spacing:-1px;
+  font-variant-numeric:tabular-nums;text-shadow:0 0 24px var(--green-glow);line-height:1;
+  display:flex;align-items:center;justify-content:center;gap:8px}
+.radio-stat-dot{width:11px;height:11px;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green-glow);animation:blink 2s infinite}
+.radio-stat-label{margin-top:10px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--mute);font-weight:700}
+
+.radio-card{padding:22px 24px;border-radius:10px;margin-bottom:16px;
+  background:linear-gradient(to bottom,var(--panel-2),var(--panel));border:1px solid var(--line);box-shadow:var(--engrave)}
+.radio-card-title{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--amber);font-weight:800;margin-bottom:18px}
+.radio-chart{display:flex;align-items:flex-end;gap:5px;height:120px}
+.radio-chart-bar{flex:1;min-height:4px;border-radius:3px 3px 0 0;background:var(--green);
+  box-shadow:0 0 10px var(--green-glow);position:relative;transition:height .6s ease}
+.radio-chart-bar .tooltip{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:6px;
+  background:var(--panel-3);border:1px solid var(--line-hi);border-radius:5px;padding:5px 9px;font-size:10px;
+  color:var(--fg-hi);white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s;z-index:5}
+.radio-chart-bar:hover .tooltip{opacity:1}
+.radio-chart-labels{display:flex;justify-content:space-between;margin-top:8px;font-size:9px;color:var(--mute-2);letter-spacing:1px}
+
+.radio-globe-wrap{display:flex;gap:26px;align-items:center;flex-wrap:wrap}
+.radio-globe-canvas{width:300px;max-width:100%;aspect-ratio:1;opacity:0;transition:opacity .5s}
+.radio-globe-canvas.loaded{opacity:1}
+.radio-countries{flex:1;min-width:220px;display:flex;flex-direction:column;gap:9px}
+.radio-country{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--fg)}
+.radio-country-flag{font-size:15px;line-height:1}
+.radio-country-sessions{margin-left:auto;color:var(--mute);font-variant-numeric:tabular-nums;font-size:11px}
+
+/* ═══════════ FOOTER ═══════════ */
+footer{border-top:1px solid var(--line);background:var(--ink-2);padding:46px 0 56px;position:relative}
+.footer-inner{max-width:var(--wrap);margin:0 auto;padding:0 40px;
+  display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:24px}
+@media (max-width:720px){.footer-inner{grid-template-columns:1fr;text-align:center;gap:18px;padding:0 18px}}
+.footer-brand{color:var(--green);font-size:12px;font-weight:800;letter-spacing:2px}
+.footer-brand::before{content:"~ ";color:var(--mute-2)}
+.footer-ascii{text-align:center;color:var(--mute-2);font-size:11px;letter-spacing:3px;user-select:none}
+.footer-links{display:flex;gap:20px;justify-content:flex-end}
+@media (max-width:720px){.footer-links{justify-content:center}}
+.footer-link{display:inline-flex;align-items:center;gap:7px;color:var(--mute);font-size:11px;letter-spacing:.5px}
+.footer-link:hover{color:var(--green)}
+.footer-link svg{width:14px;height:14px;fill:currentColor}
+</style>
+</head>
+<body>
+
+<div class="crt-scan"></div>
+<div class="crt-grain"></div>
+<div class="chassis"></div>
+<span class="screw tl"></span><span class="screw tr"></span>
+<span class="screw bl"></span><span class="screw br"></span>
+
+<!-- ═══ NAV ═══ -->
+<nav class="nav">
+  <div class="nav-in">
+    <a href="#top" class="brand"><span class="led"></span>CLI<b>AMP</b></a>
+    <button class="nav-toggle" aria-label="Menu" onclick="document.getElementById('nl').classList.toggle('open')">≡</button>
+    <div class="nav-links" id="nl" onclick="this.classList.remove('open')">
+      <a href="#install">Install</a>
+      <a href="#sources">Sources</a>
+      <a href="#features">Features</a>
+      <a href="#radio">Radio</a>
+      <a href="https://whiterose.org.contextowl.co/docs/cliamp" class="ext">Docs ↗</a>
+      <a href="https://github.com/bjarneo/cliamp" class="ext">GitHub ↗</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero" id="top">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <div class="hero-eyebrow"><span class="led"></span>Terminal music player</div>
+        <h1 class="hero-word">cli<span>amp</span></h1>
+        <p class="hero-sub"><em>Winamp</em> for your shell.</p>
+        <p class="hero-desc">Playlists, a 10-band EQ, visualizers, synced lyrics, remote control, and a Lua plugin system — streaming from <em>Spotify, Qobuz, YouTube Music, Plex, Jellyfin, Emby, Navidrome</em>, and 30,000+ radio stations.</p>
+        <div class="hero-cta">
+          <a href="#install" class="btn btn-go">Install<span class="ar">→</span></a>
+          <a href="https://github.com/bjarneo/cliamp" class="btn btn-ghost">Source<span class="ar">↗</span></a>
+        </div>
+      </div>
+
+      <!-- CRT terminal — live radio player -->
+      <div>
+        <div class="tty radio-player" id="radio-player">
+          <audio id="radio-audio" preload="none"></audio>
+          <div class="tty-head">
+            <span class="tty-head-prompt">$</span>
+            <span class="tty-head-cmd">cliamp</span>
+            <span class="tty-head-flag">--provider radio</span>
+            <span class="tty-head-spacer"></span>
+            <button class="rp-play" onclick="toggleRadio()" aria-label="Play or stop"><span class="i-play">▶</span><span class="i-stop">❚❚</span><span class="i-load">◌</span></button>
+            <span class="tty-head-pid">tty1</span>
+          </div>
+          <div class="tty-body">
+            <div class="t-row"><span class="t-title">C L I A M P</span><span class="t-focus">[Playlist]</span></div>
+            <div class="t-row t-track-row"><span class="t-track-sym">♫</span><span class="t-track" id="t-track-name">Lofi Hip Hop Radio</span></div>
+            <div class="t-row t-time-row" onclick="toggleRadio()" role="button" tabindex="0" aria-label="Play / Stop" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();toggleRadio()}">
+              <span class="t-time">00:00 / 00:00</span>
+              <span class="t-status">
+                <span class="t-status-stopped">■ Stopped <em>(click to play)</em></span>
+                <span class="t-status-loading">◌ Buffering…</span>
+                <span class="t-status-playing">● Streaming</span>
+              </span>
+            </div>
+            <div class="t-spacer"></div>
+            <pre id="ascii-viz"></pre>
+            <div class="t-seek">
+              <span class="t-seek-fill">━━━━━━━━━━━━━━━━━━━━</span>
+              <span class="t-seek-label">STREAMING</span>
+              <span class="t-seek-fill">━━━━━━━━━━━━━━━━━━━━</span>
+            </div>
+            <div class="t-spacer"></div>
+            <div class="t-row t-eqvol">
+              <span class="t-eq-inline">
+                <span class="t-label">EQ</span>
+                <span class="t-dim">[</span><span class="t-active">Rock</span><span class="t-dim">]</span>
+                <span class="t-eq-bands">+5 +4 +2 -1 -2 +2 +4 +5 +5 +5</span>
+              </span>
+              <span class="t-vol-inline">
+                <span class="t-label">VOL</span>
+                <input type="range" class="rp-vol" min="0" max="100" value="70" oninput="setRadioVol(this.value)" aria-label="Volume">
+                <span class="t-vol-db">+0dB</span>
+              </span>
+            </div>
+            <div class="t-row t-src-row">
+              <span class="t-label">SRC</span>
+              <span class="t-pill-static">[Radio]</span>
+              <span class="t-dim">1/9</span>
+            </div>
+            <div class="t-spacer"></div>
+            <div class="t-row t-pl-header">
+              <span>▸─ Playlist ──</span>
+              <span class="t-active">[Shuffle]</span>
+              <span class="t-dim">[Repeat: Off]</span>
+              <span class="t-dim">[1/11]</span>
+              <span>──</span>
+            </div>
+            <div class="t-pl-item active" data-station="lofi" role="button" tabindex="0" onclick="switchChannel('lofi')"><span class="t-pl-mark">▶</span><span class="t-pl-num">&nbsp;1.</span> Lofi Hip Hop Radio</div>
+            <div class="t-pl-item" data-station="edm" role="button" tabindex="0" onclick="switchChannel('edm')"><span class="t-pl-mark">▶</span><span class="t-pl-num">&nbsp;2.</span> EDM Pulse</div>
+            <div class="t-pl-item" data-station="synthwave" role="button" tabindex="0" onclick="switchChannel('synthwave')"><span class="t-pl-mark">▶</span><span class="t-pl-num">&nbsp;3.</span> Synthwave Nights</div>
+            <div class="t-pl-item" data-station="ncs" role="button" tabindex="0" onclick="switchChannel('ncs')"><span class="t-pl-mark">▶</span><span class="t-pl-num">&nbsp;4.</span> NCS Radio</div>
+            <div class="t-pl-item" data-station="ncs-house" role="button" tabindex="0" onclick="switchChannel('ncs-house')"><span class="t-pl-mark">▶</span><span class="t-pl-num">&nbsp;5.</span> NCS House</div>
+            <div class="t-pl-item" data-station="ncs-dubstep" role="button" tabindex="0" onclick="switchChannel('ncs-dubstep')"><span class="t-pl-mark">▶</span><span class="t-pl-num">&nbsp;6.</span> NCS Dubstep</div>
+            <div class="t-pl-item" data-station="ncs-dnb" role="button" tabindex="0" onclick="switchChannel('ncs-dnb')"><span class="t-pl-mark">▶</span><span class="t-pl-num">&nbsp;7.</span> NCS Drum &amp; Bass</div>
+            <div class="t-pl-item" data-station="ncs-trap" role="button" tabindex="0" onclick="switchChannel('ncs-trap')"><span class="t-pl-mark">▶</span><span class="t-pl-num">&nbsp;8.</span> NCS Trap</div>
+            <div class="t-pl-item" data-station="ncs-phonk" role="button" tabindex="0" onclick="switchChannel('ncs-phonk')"><span class="t-pl-mark">▶</span><span class="t-pl-num">&nbsp;9.</span> NCS Phonk</div>
+            <div class="t-pl-item" data-station="ncs-pop" role="button" tabindex="0" onclick="switchChannel('ncs-pop')"><span class="t-pl-mark">▶</span><span class="t-pl-num">10.</span> NCS Pop</div>
+            <div class="t-pl-item" data-station="ncs-chill" role="button" tabindex="0" onclick="switchChannel('ncs-chill')"><span class="t-pl-mark">▶</span><span class="t-pl-num">11.</span> NCS Chill</div>
+            <div class="t-spacer"></div>
+            <div class="t-row t-help">
+              <span class="t-help-item"><kbd>↑↓</kbd> Scroll</span>
+              <span class="t-help-item"><kbd>Enter</kbd> Play</span>
+              <span class="t-help-item"><kbd>Spc</kbd> ▶❚❚</span>
+               <span class="t-help-item"><kbd>f</kbd> Fav</span>
+              <span class="t-help-item"><kbd>Tab</kbd> Focus</span>
+              <span class="t-help-item"><kbd>?</kbd> Keys</span>
+            </div>
+            <div class="t-row t-bot">
+              <span><span class="t-label">SPD</span> <span class="t-dim">[</span><span class="t-fg">1x</span><span class="t-dim">]</span></span>
+              <span class="t-bot-right">↓ 0.7 MB&nbsp;&nbsp;32 KB/s</span>
+            </div>
+          </div>
+        </div>
+        <p class="tune-hint">Click a station above to tune in live — right here in your browser.</p>
+        <div class="tty-hint"><code id="radio-hint-cmd"><span class="p">$ </span>cliamp https://radio.cliamp.stream/lofi/stream.pls</code></div>
+      </div>
+    </div>
+
+    <!-- sponsor -->
+    <div class="sponsor">
+      <a href="https://contextowl.co"><img src="https://contextowl.co/uploads/_brand/sponsor-dark.svg" alt="Proudly sponsored by contextowl.co" width="400"></a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ TICKER ═══ -->
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track" id="ticker">
+    <span>MP3 · FLAC · OGG · OPUS · WAV · AAC · ALAC · Spotify · Qobuz · YouTube · Plex · Jellyfin · Emby · Navidrome · SoundCloud · NetEase · Bandcamp · Bilibili · RSS / Podcasts · 30k+ Radio Stations · ICY metadata · MPRIS · Lua plugins</span>
+  </div>
+</div>
+
+<!-- ═══ 01 DEMO ═══ -->
+<section>
+  <div class="wrap">
+    <div class="strip reveal">
+      <span class="strip-idx">01</span><span class="strip-name">demo<em>.mp4</em></span><span class="strip-rule"></span>
+      <span class="strip-meter"><i></i><i></i><i></i><i></i><i></i></span>
+    </div>
+    <div class="demo-frame reveal">
+      <div class="demo-wrap">
+        <video id="demo-vid" class="demo-video" autoplay loop muted playsinline>
+          <source src="https://github.com/user-attachments/assets/fbc33d20-e3ac-4a62-a991-8a2f0243c8ea" type="video/mp4">
+        </video>
+        <button class="sound-toggle" onclick="toggleSound(this)" aria-label="Toggle sound">
+          <svg class="icon-muted" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+          <svg class="icon-unmuted" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 02 INSTALL ═══ -->
+<section id="install">
+  <div class="wrap">
+    <div class="strip rev reveal">
+      <span class="strip-idx">02</span><span class="strip-name">install<em>.sh</em></span><span class="strip-rule"></span>
+      <span class="strip-meter"><i></i><i></i><i></i><i></i><i></i></span>
+    </div>
+    <div class="install-grid reveal">
+      <div class="install-box" onclick="copyCmd(this,'curl -fsSL https://raw.githubusercontent.com/bjarneo/cliamp/HEAD/install.sh | sh')">
+        <div class="install-platform">Direct</div>
+        <code><span class="prompt">$ </span>curl -fsSL …/install.sh | sh</code>
+        <span class="copied-msg">COPIED</span>
+      </div>
+      <div class="install-box" onclick="copyCmd(this,'brew install bjarneo/cliamp/cliamp')">
+        <div class="install-platform">Homebrew</div>
+        <code><span class="prompt">$ </span>brew install bjarneo/cliamp/cliamp</code>
+        <span class="copied-msg">COPIED</span>
+      </div>
+      <div class="install-box" onclick="copyCmd(this,'yay -S cliamp')">
+        <div class="install-platform">Arch (AUR)</div>
+        <code><span class="prompt">$ </span>yay -S cliamp</code>
+        <span class="copied-msg">COPIED</span>
+      </div>
+      <div class="install-box" onclick="copyCmd(this,'go install github.com/bjarneo/cliamp@latest')">
+        <div class="install-platform">Go</div>
+        <code><span class="prompt">$ </span>go install github.com/bjarneo/cliamp@latest</code>
+        <span class="copied-msg">COPIED</span>
+      </div>
+    </div>
+    <div class="install-note reveal">
+      Or build from source — <a href="https://github.com/bjarneo/cliamp">see the README</a>. Windows builds are available from Releases; when <code>HOME</code> is unset, config lives under <code>%APPDATA%\cliamp</code>.
+    </div>
+    <div class="next-step reveal">
+      <div class="next-step-label">Next step · configure providers</div>
+      <h3>Run the setup wizard</h3>
+      <p>An interactive TUI walks you through Navidrome, Plex, Jellyfin, Emby, Spotify, Qobuz, NetEase, and YouTube Music. It links to each provider's credential page, validates the connection, and writes the right block to your config file.</p>
+      <div class="install-box" onclick="copyCmd(this,'cliamp setup')">
+        <div class="install-platform">Setup</div>
+        <code><span class="prompt">$ </span>cliamp setup</code>
+        <span class="copied-msg">COPIED</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 03 SOURCES ═══ -->
+<section id="sources">
+  <div class="wrap">
+    <div class="strip reveal">
+      <span class="strip-idx">03</span><span class="strip-name">sources</span><span class="strip-rule"></span>
+      <span class="strip-meter"><i></i><i></i><i></i><i></i><i></i></span>
+    </div>
+    <p class="sources-intro reveal">
+      Stream from everywhere. Every provider runs through the same <em>playlist, EQ, visualizer, and lyrics pipeline</em> — your config follows you across services. Run <code>cliamp setup</code> for an interactive wizard that walks you through Navidrome, Plex, Jellyfin, Emby, Spotify, Qobuz, NetEase, and YouTube Music.
+    </p>
+    <div class="sources-grid reveal">
+      <div class="source" style="--src-color:#1db954"><div class="source-badge">OAuth · cached</div><div class="source-name">Spotify</div><div class="source-desc">Stream your Premium library. Bring your own developer <code>client_id</code> for a private Web API quota; playback is authorized separately. Search &amp; add tracks with <kbd>F</kbd>. Currently unavailable on Windows builds.</div></div>
+      <div class="source" style="--src-color:#c3c9d4"><div class="source-badge">OAuth · lossless</div><div class="source-name">Qobuz</div><div class="source-desc">Opt-in: set <code>[qobuz] enabled = true</code>. Stream lossless FLAC up to 24-bit/192kHz from your subscription. Browse favorites &amp; playlists, search with <kbd>Ctrl+F</kbd>. Sign in once via OAuth in your browser.</div></div>
+      <div class="source" style="--src-color:#ff0000"><div class="source-badge">yt-dlp</div><div class="source-name">YouTube</div><div class="source-desc">Search videos with <kbd>Ctrl+F</kbd>, then play, append, or queue from a results list.</div></div>
+      <div class="source" style="--src-color:#ff4444"><div class="source-badge">OAuth · cached</div><div class="source-name">YT Music</div><div class="source-desc">Browse your playlists with auto music/non-music classification. Set <code>cookies_from</code> to play through your browser session and avoid YouTube bot blocks (keep <code>yt-dlp</code> current).</div></div>
+      <div class="source" style="--src-color:#e5a00d"><div class="source-badge">Media server</div><div class="source-name">Plex</div><div class="source-desc">Browse albums and stream from your Plex Media Server.</div></div>
+      <div class="source" style="--src-color:#00a4dc"><div class="source-badge">Media server</div><div class="source-name">Jellyfin</div><div class="source-desc">Artists, albums, tracks — buffered gapless playback.</div></div>
+      <div class="source" style="--src-color:#52b54b"><div class="source-badge">Media server</div><div class="source-name">Emby</div><div class="source-desc">Browse your Emby music library with API key or username/password auth.</div></div>
+      <div class="source" style="--src-color:#2ecc71"><div class="source-badge">Subsonic API</div><div class="source-name">Navidrome</div><div class="source-desc">Browse your self-hosted library with synced lyrics.</div></div>
+      <div class="source" style="--src-color:#ff7700"><div class="source-badge">Provider · yt-dlp</div><div class="source-name">SoundCloud</div><div class="source-desc">Opt-in: set <code>[soundcloud] enabled = true</code>. Search with <kbd>Ctrl+F</kbd>, browse curated genre playlists, or add <code>user</code> for your profile. <code>cookies_from</code> unlocks Go+ tracks via your browser session.</div></div>
+      <div class="source" style="--src-color:#d33a31"><div class="source-badge">Provider · yt-dlp</div><div class="source-name">NetEase</div><div class="source-desc">Opt-in: run <code>cliamp setup</code> after signing in at <code>music.163.com</code>, then choose your browser. Browse liked songs, account playlists, saved playlists, and charts with browser-cookie playback.</div></div>
+      <div class="source" style="--src-color:#629aa9"><div class="source-badge">yt-dlp</div><div class="source-name">Bandcamp</div><div class="source-desc">Paste any Bandcamp URL and it just plays.</div></div>
+      <div class="source" style="--src-color:#00a1d6"><div class="source-badge">yt-dlp</div><div class="source-name">Bilibili</div><div class="source-desc">Audio tracks from Bilibili videos via yt-dlp.</div></div>
+      <div class="source" style="--src-color:#f7a000"><div class="source-badge">30k+ stations</div><div class="source-name">Radio</div><div class="source-desc">Browse stations by country, tag, or name. ICY metadata.</div></div>
+      <div class="source" style="--src-color:#c3a6ff"><div class="source-badge">RSS feeds</div><div class="source-name">Podcasts</div><div class="source-desc">Pass any podcast RSS URL and listen in your terminal.</div></div>
+      <div class="source" style="--src-color:#37f5a0"><div class="source-badge">Local</div><div class="source-name">Files</div><div class="source-desc">MP3, FLAC, OGG, Opus, WAV, AAC, ALAC, WMA. ID3 tags read.</div></div>
+    </div>
+    <div class="source-config reveal">
+      <div class="next-step-label">NetEase Cloud Music</div>
+      <h3>Browser-session setup</h3>
+      <p>Sign in at <code>music.163.com</code>, then run <code>cliamp setup</code>. Choose NetEase Cloud Music, pick the browser you used, and the wizard validates the session before writing config.</p>
+      <pre><code>[netease]
+enabled = true
+cookies_from = "chrome"
+user_id = "your-account-user-id"</code></pre>
+      <p>After setup, press <kbd>M</kbd> to open NetEase and <kbd>Ctrl+F</kbd> to search. Playback uses <code>yt-dlp</code> with the same browser cookie source.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 04 FEATURES ═══ -->
+<section id="features">
+  <div class="wrap">
+    <div class="strip rev reveal">
+      <span class="strip-idx">04</span><span class="strip-name">features</span><span class="strip-rule"></span>
+      <span class="strip-meter"><i></i><i></i><i></i><i></i><i></i></span>
+    </div>
+    <div class="features-grid reveal">
+      <div class="feature"><div class="feature-icon">≡</div><div class="feature-name">10-Band Equalizer</div><p>Parametric EQ with presets: Rock, Jazz, Pop, Classical, and more.</p></div>
+      <div class="feature"><div class="feature-icon">◈</div><div class="feature-name">Themes &amp; Visualizers</div><p>20 built-in themes and spectrum, waveform, particle, and true-stereo modes. Stereo provides dedicated L/R horizontal LED peak meters. Hot-swap with <kbd>t</kbd> / <kbd>v</kbd>.</p></div>
+      <div class="feature"><div class="feature-icon">☰</div><div class="feature-name">Playlists</div><p>TOML playlists, M3U/M3U8/PLS import/export, duplicate-safe writes, and TUI/CLI sort tools.</p></div>
+      <div class="feature"><div class="feature-icon">⟲</div><div class="feature-name">Recently Played</div><p>Auto-recorded listening history. Browse it as a virtual playlist or run <code>cliamp history</code> from the shell.</p></div>
+      <div class="feature"><div class="feature-icon">→</div><div class="feature-name">HTTP Streaming</div><p>Play from URLs, internet radio, remote M3U playlists, and HLS (<code>.m3u8</code>) live streams via ffmpeg.</p></div>
+      <div class="feature"><div class="feature-icon">♪</div><div class="feature-name">Synced Lyrics</div><p>Embedded local lyrics first, then LRCLIB/NetEase fallback. Auto-scrolling for timestamped lyrics.</p></div>
+      <div class="feature"><div class="feature-icon">⇄</div><div class="feature-name">Gapless Playback</div><p>Seamless transitions with preloaded next-track buffering.</p></div>
+      <div class="feature"><div class="feature-icon">♬</div><div class="feature-name">MPRIS / Media Keys</div><p>Desktop integration. Hardware media keys, <code>playerctl</code>, and embedded local cover art.</p></div>
+      <div class="feature"><div class="feature-icon">▮</div><div class="feature-name">Quickshell Widget (Omarchy)</div><p>Drop-in <a href="https://quickshell.org">Quickshell</a> now-playing card with a Winamp 2-style spectrum, tracking your active Omarchy theme. <a href="https://github.com/bjarneo/cliamp/blob/main/docs/quickshell.md">Setup</a>.</p></div>
+      <div class="feature"><div class="feature-icon">⚙</div><div class="feature-name">Audio Quality</div><p>Configurable sample rate (22kHz-192kHz), up to 5 seconds of buffering, and resampling.</p></div>
+      <div class="feature"><div class="feature-icon">⌀</div><div class="feature-name">Live Radio Metadata</div><p>ICY/Shoutcast metadata for the current song on internet radio, plus API-based now-playing for FIP and NTS.</p></div>
+      <div class="feature"><div class="feature-icon">✎</div><div class="feature-name">Embedded Tag Reading</div><p>ID3v2, Vorbis comments, MP4 atoms - artist, album, genre, year, lyrics, cover art.</p></div>
+      <div class="feature"><div class="feature-icon">▶</div><div class="feature-name">CLI Flags</div><p>Override volume, shuffle, repeat, theme, EQ, sample rate per-session.</p></div>
+      <div class="feature"><div class="feature-icon">⇥</div><div class="feature-name">Shell Completion</div><p>Generate completion scripts for Bash, Zsh, Fish, and PowerShell.</p></div>
+      <div class="feature"><div class="feature-icon">≡</div><div class="feature-name">Diagnostic Logging</div><p>File logs at <span class="path">~/.config/cliamp/cliamp.log</span>. Set <code>log_level</code> in config or <code>--log-level</code> on the CLI: <code>debug</code>, <code>info</code>, <code>warn</code>, <code>error</code>.</p></div>
+      <div class="feature"><div class="feature-icon">↑</div><div class="feature-name">Self-Update</div><p>Run <code>--upgrade</code> to update to the latest release in-terminal.</p></div>
+      <div class="feature"><div class="feature-icon">$</div><div class="feature-name">Env-Interpolated Secrets</div><p>Reference any string in <code>config.toml</code> from the environment with <code>${VAR}</code> or <code>$VAR</code>. Keep passwords and tokens out of the file.</p></div>
+      <div class="feature"><div class="feature-icon">⌁</div><div class="feature-name">Remote Control</div><p>Control a running instance from another terminal via local-socket IPC. Run with <code>--daemon</code> for headless playback driven entirely by scripts or Waybar.</p></div>
+      <div class="feature"><div class="feature-icon">⎔</div><div class="feature-name">Lua Plugins</div><p>Lua 5.1 sandboxed plugin system. Hook events, add visualizers, push data.</p></div>
+      <div class="feature"><div class="feature-icon">▣</div><div class="feature-name">Save to Disk</div><p>Press <kbd>Ctrl+S</kbd> to save the current track to <code>~/Music</code>.</p></div>
+      <div class="feature"><div class="feature-icon">↔</div><div class="feature-name">Responsive TUI</div><p>Full, compact, and minimal layouts keep playback usable in terminal splits and small SSH sessions.</p></div>
+      <div class="feature"><div class="feature-icon">⟲</div><div class="feature-name">Undo Queue Edits</div><p>Restore the last playlist removal or queue clear with <kbd>Ctrl+Z</kbd>.</p></div>
+      <div class="feature"><div class="feature-icon">⌨</div><div class="feature-name">Consistent Keyboard Input</div><p>Search, URLs, playlist names, and jump prompts support cursor movement, paste, word deletion, and clear-line editing.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 05 COMMUNITY PLUGINS ═══ -->
+<section>
+  <div class="wrap">
+    <div class="strip reveal">
+      <span class="strip-idx">05</span><span class="strip-name">community<em>-plugins</em></span><span class="strip-rule"></span>
+      <span class="strip-meter"><i></i><i></i><i></i><i></i><i></i></span>
+    </div>
+    <div class="community-plugins reveal">
+      <div class="community-plugin"><span class="community-plugin-jack"></span><div class="community-plugin-meta"><div class="community-plugin-name"><a href="https://github.com/tetsuo76/cliamp-lastfm">cliamp-lastfm</a></div><div class="community-plugin-desc">Last.fm scrobbling</div></div><span class="community-plugin-author"><a href="https://github.com/tetsuo76">@tetsuo76</a></span></div>
+      <div class="community-plugin"><span class="community-plugin-jack"></span><div class="community-plugin-meta"><div class="community-plugin-name"><a href="https://github.com/AlexZeitler/cliamp-plugin-led-burst">cliamp-plugin-led-burst</a></div><div class="community-plugin-desc">Stereo LED matrix visualizer</div></div><span class="community-plugin-author"><a href="https://github.com/AlexZeitler">@AlexZeitler</a></span></div>
+      <div class="community-plugin"><span class="community-plugin-jack"></span><div class="community-plugin-meta"><div class="community-plugin-name"><a href="https://github.com/HANCORE-linux/cliamp-plugin-nightrider">cliamp-plugin-nightrider</a></div><div class="community-plugin-desc">Nightrider visualizer</div></div><span class="community-plugin-author"><a href="https://github.com/HANCORE-linux">@HANCORE-linux</a></span></div>
+      <div class="community-plugin"><span class="community-plugin-jack"></span><div class="community-plugin-meta"><div class="community-plugin-name"><a href="https://github.com/8bit64k/cliamp-plugin-tubeamp">cliamp-plugin-tubeamp</a></div><div class="community-plugin-desc">Vacuum-tube amplifier visualizer</div></div><span class="community-plugin-author"><a href="https://github.com/8bit64k">@8bit64k</a></span></div>
+      <div class="community-plugin"><span class="community-plugin-jack"></span><div class="community-plugin-meta"><div class="community-plugin-name"><a href="https://github.com/8bit64k/cliamp-plugin-nova">cliamp-plugin-nova</a></div><div class="community-plugin-desc">Concentric-ring spectrum visualizer</div></div><span class="community-plugin-author"><a href="https://github.com/8bit64k">@8bit64k</a></span></div>
+      <div class="community-plugin"><span class="community-plugin-jack"></span><div class="community-plugin-meta"><div class="community-plugin-name"><a href="https://github.com/sollymay/cliamp-plugin-gpodder-sync">cliamp-plugin-gpodder-sync</a></div><div class="community-plugin-desc">gpodder.net subscription, progress and download sync</div></div><span class="community-plugin-author"><a href="https://github.com/sollymay">@sollymay</a></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 06 RADIO STATS ═══ -->
+<section id="radio">
+  <div class="wrap">
+    <div class="strip rev reveal">
+      <span class="strip-idx">06</span><span class="strip-name">radio<em>.stats</em></span><span class="strip-rule"></span>
+      <span class="strip-meter"><i></i><i></i><i></i><i></i><i></i></span>
+    </div>
+    <div class="radio-header reveal">
+      <div class="radio-tabs" id="radio-stat-tabs">
+        <button class="radio-tab active" data-station="total" onclick="switchStatTab('total')">Total</button>
+        <button class="radio-tab" data-station="edm" onclick="switchStatTab('edm')">EDM</button>
+        <button class="radio-tab" data-station="lofi" onclick="switchStatTab('lofi')">Lofi</button>
+        <button class="radio-tab" data-station="synthwave" onclick="switchStatTab('synthwave')">Synthwave</button>
+        <button class="radio-tab" data-station="ncs" onclick="switchStatTab('ncs')">NCS</button>
+        <button class="radio-tab" data-station="ncs-house" onclick="switchStatTab('ncs-house')">NCS House</button>
+        <button class="radio-tab" data-station="ncs-dubstep" onclick="switchStatTab('ncs-dubstep')">NCS Dubstep</button>
+        <button class="radio-tab" data-station="ncs-dnb" onclick="switchStatTab('ncs-dnb')">NCS DnB</button>
+        <button class="radio-tab" data-station="ncs-trap" onclick="switchStatTab('ncs-trap')">NCS Trap</button>
+        <button class="radio-tab" data-station="ncs-phonk" onclick="switchStatTab('ncs-phonk')">NCS Phonk</button>
+        <button class="radio-tab" data-station="ncs-pop" onclick="switchStatTab('ncs-pop')">NCS Pop</button>
+        <button class="radio-tab" data-station="ncs-chill" onclick="switchStatTab('ncs-chill')">NCS Chill</button>
+      </div>
+      <div class="radio-live"><span class="radio-live-dot"></span> LIVE</div>
+    </div>
+    <div id="radio-error"></div>
+    <div class="radio-stats-row reveal">
+      <div class="radio-stat">
+        <div class="radio-stat-value"><span class="radio-stat-dot"></span><span id="radio-now">-</span></div>
+        <div class="radio-stat-label">listening now</div>
+      </div>
+      <div class="radio-stat">
+        <div class="radio-stat-value" id="radio-sessions">-</div>
+        <div class="radio-stat-label">total sessions</div>
+      </div>
+      <div class="radio-stat">
+        <div class="radio-stat-value" id="radio-hours">-</div>
+        <div class="radio-stat-label">listen hours</div>
+      </div>
+    </div>
+    <div class="radio-card reveal">
+      <div class="radio-card-title">Daily Activity</div>
+      <div class="radio-chart" id="radio-chart"></div>
+      <div class="radio-chart-labels" id="radio-chart-labels"></div>
+    </div>
+    <div class="radio-card reveal">
+      <div class="radio-card-title">Listeners Around the World</div>
+      <div class="radio-globe-wrap">
+        <canvas class="radio-globe-canvas" id="radio-globe"></canvas>
+        <div class="radio-countries" id="radio-countries"></div>
+      </div>
+    </div>
+    <div class="radio-card reveal">
+      <div class="radio-card-title">Top Countries</div>
+      <div class="radio-countries" id="radio-total-countries"></div>
+    </div>
+    <div class="install-box" id="radio-cmd-box" onclick="copyCmd(this,'cliamp https://radio.cliamp.stream/lofi/stream.pls')" style="display:none">
+      <span class="copied-msg">COPIED</span>
+      <div class="install-platform">Tune in</div>
+      <code><span class="prompt">$ </span><span id="radio-cmd-text">cliamp https://radio.cliamp.stream/lofi/stream.pls</span></code>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ═══ -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-brand">CLIAMP · built for the terminal</div>
+    <div class="footer-ascii">░▒▓█▓▒░ ░▒▓█▓▒░ ░▒▓█▓▒░</div>
+    <div class="footer-links">
+      <a href="https://whiterose.org.contextowl.co/docs/cliamp" class="footer-link">
+        <svg viewBox="0 0 16 16"><path d="M2 2.5A1.5 1.5 0 013.5 1h6.086a1.5 1.5 0 011.06.44l2.915 2.914A1.5 1.5 0 0114 5.414V13.5a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 012 13.5v-11zM4.5 7a.5.5 0 000 1h5a.5.5 0 000-1h-5zm0 3a.5.5 0 000 1h5a.5.5 0 000-1h-5z"/></svg>
+        Docs
+      </a>
+      <a href="https://github.com/bjarneo/cliamp" class="footer-link">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+      <a href="https://x.com/iamdothash" class="footer-link">
+        <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        @iamdothash
+      </a>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ── Copy to clipboard ── */
+function copyCmd(el,cmd){
+  navigator.clipboard.writeText(cmd).then(function(){
+    var m=el.querySelector('.copied-msg');
+    m.classList.add('show');
+    setTimeout(function(){m.classList.remove('show')},1500);
+  });
+}
+
+function toggleSound(btn){
+  var vid=document.getElementById('demo-vid');
+  vid.muted=!vid.muted;
+  btn.classList.toggle('unmuted',!vid.muted);
+}
+
+/* ── ASCII Visualizer ── */
+(function(){
+  var viz=document.getElementById('ascii-viz');
+  if(!viz)return;
+  var cols=36;
+  var rows=5;
+  var heights=[];
+  var targets=[];
+  var speeds=[];
+  for(var i=0;i<cols;i++){
+    heights.push(Math.random()*rows);
+    targets.push(Math.random()*rows);
+    speeds.push(0.03+Math.random()*0.06);
+  }
+  function tick(){
+    for(var i=0;i<cols;i++){
+      heights[i]+=(targets[i]-heights[i])*speeds[i];
+      if(Math.abs(heights[i]-targets[i])<0.15){
+        targets[i]=Math.random()*rows;
+      }
+    }
+    var lines=[];
+    for(var r=rows;r>=1;r--){
+      var line='';
+      for(var c=0;c<cols;c++){
+        var h=heights[c];
+        if(h>=r) line+='█';
+        else if(h>=r-0.25) line+='▓';
+        else if(h>=r-0.5) line+='▒';
+        else if(h>=r-0.75) line+='░';
+        else line+=' ';
+      }
+      lines.push(line);
+    }
+    viz.textContent=lines.join('\n');
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+
+/* ── Radio Player ── */
+var currentChannel='lofi';
+var radioStreams={edm:'https://radio.cliamp.stream/edm/stream',lofi:'https://radio.cliamp.stream/lofi/stream',synthwave:'https://radio.cliamp.stream/synthwave/stream','ncs':'https://radio.cliamp.stream/ncs/stream','ncs-house':'https://radio.cliamp.stream/ncs-house/stream','ncs-dubstep':'https://radio.cliamp.stream/ncs-dubstep/stream','ncs-dnb':'https://radio.cliamp.stream/ncs-dnb/stream','ncs-trap':'https://radio.cliamp.stream/ncs-trap/stream','ncs-phonk':'https://radio.cliamp.stream/ncs-phonk/stream','ncs-pop':'https://radio.cliamp.stream/ncs-pop/stream','ncs-chill':'https://radio.cliamp.stream/ncs-chill/stream'};
+var radioPls={edm:'https://radio.cliamp.stream/edm/stream.pls',lofi:'https://radio.cliamp.stream/lofi/stream.pls',synthwave:'https://radio.cliamp.stream/synthwave/stream.pls','ncs':'https://radio.cliamp.stream/ncs/stream.pls','ncs-house':'https://radio.cliamp.stream/ncs-house/stream.pls','ncs-dubstep':'https://radio.cliamp.stream/ncs-dubstep/stream.pls','ncs-dnb':'https://radio.cliamp.stream/ncs-dnb/stream.pls','ncs-trap':'https://radio.cliamp.stream/ncs-trap/stream.pls','ncs-phonk':'https://radio.cliamp.stream/ncs-phonk/stream.pls','ncs-pop':'https://radio.cliamp.stream/ncs-pop/stream.pls','ncs-chill':'https://radio.cliamp.stream/ncs-chill/stream.pls'};
+var radioNames={edm:'EDM Pulse',lofi:'Lofi Hip Hop Radio',synthwave:'Synthwave Nights','ncs':'NCS Radio','ncs-house':'NCS House','ncs-dubstep':'NCS Dubstep','ncs-dnb':'NCS Drum & Bass','ncs-trap':'NCS Trap','ncs-phonk':'NCS Phonk','ncs-pop':'NCS Pop','ncs-chill':'NCS Chill'};
+
+function updateChannelUI(ch){
+  document.querySelectorAll('.t-pl-item[data-station]').forEach(function(it){it.classList.toggle('active',it.dataset.station===ch)});
+  var hintEl=document.getElementById('radio-hint-cmd');
+  hintEl.textContent='';
+  var prompt=document.createElement('span');
+  prompt.className='p';
+  prompt.textContent='$ ';
+  hintEl.appendChild(prompt);
+  hintEl.appendChild(document.createTextNode('cliamp '+radioPls[ch]));
+  var nameEl=document.getElementById('t-track-name');
+  if(nameEl)nameEl.textContent=radioNames[ch]||ch;
+}
+
+/* Selecting a station tunes in live (the click is a valid user gesture). */
+function switchChannel(ch){
+  currentChannel=ch;
+  updateChannelUI(ch);
+  var a=document.getElementById('radio-audio');
+  var p=document.getElementById('radio-player');
+  a.pause();
+  a.src=radioStreams[ch];
+  a.volume=document.querySelector('.rp-vol').value/100;
+  p.classList.add('loading');
+  p.classList.remove('playing');
+  a.play().then(function(){
+    p.classList.remove('loading');
+    p.classList.add('playing');
+  }).catch(function(){
+    p.classList.remove('loading','playing');
+  });
+}
+
+function toggleRadio(){
+  var a=document.getElementById('radio-audio');
+  var p=document.getElementById('radio-player');
+  if(!a.paused){
+    a.pause();
+    a.removeAttribute('src');
+    a.load();
+    p.classList.remove('playing','loading');
+    return;
+  }
+  p.classList.add('loading');
+  p.classList.remove('playing');
+  a.src=radioStreams[currentChannel];
+  a.volume=document.querySelector('.rp-vol').value/100;
+  a.play().then(function(){
+    p.classList.remove('loading');
+    p.classList.add('playing');
+  }).catch(function(){
+    p.classList.remove('loading');
+  });
+}
+function setRadioVol(v){
+  document.getElementById('radio-audio').volume=v/100;
+}
+
+/* ── Radio Statistics ── */
+var currentStatTab='total';
+var radioStatsData=null;
+
+function switchStatTab(ch){
+  currentStatTab=ch;
+  document.querySelectorAll('.radio-tab').forEach(function(b){b.classList.toggle('active',b.dataset.station===ch)});
+  var box=document.getElementById('radio-cmd-box');
+  if(ch==='total'){
+    box.style.display='none';
+  }else{
+    var cmd='cliamp '+radioPls[ch];
+    box.style.display='';
+    box.setAttribute('onclick',"copyCmd(this,'"+cmd+"')");
+    document.getElementById('radio-cmd-text').textContent=cmd;
+  }
+  if(radioStatsData)renderStationStats(radioStatsData,ch);
+}
+
+var countryFlags={
+  AF:"🇦🇫",AL:"🇦🇱",DZ:"🇩🇿",AR:"🇦🇷",AU:"🇦🇺",AT:"🇦🇹",BE:"🇧🇪",BR:"🇧🇷",
+  BG:"🇧🇬",CA:"🇨🇦",CL:"🇨🇱",CN:"🇨🇳",CO:"🇨🇴",HR:"🇭🇷",CZ:"🇨🇿",DK:"🇩🇰",
+  EG:"🇪🇬",EE:"🇪🇪",FI:"🇫🇮",FR:"🇫🇷",DE:"🇩🇪",GR:"🇬🇷",HK:"🇭🇰",HU:"🇭🇺",
+  IN:"🇮🇳",ID:"🇮🇩",IE:"🇮🇪",IL:"🇮🇱",IT:"🇮🇹",JP:"🇯🇵",KR:"🇰🇷",LV:"🇱🇻",
+  LT:"🇱🇹",MY:"🇲🇾",MX:"🇲🇽",NL:"🇳🇱",NZ:"🇳🇿",NO:"🇳🇴",PK:"🇵🇰",PE:"🇵🇪",
+  PH:"🇵🇭",PL:"🇵🇱",PT:"🇵🇹",RO:"🇷🇴",RU:"🇷🇺",SA:"🇸🇦",RS:"🇷🇸",SG:"🇸🇬",
+  SK:"🇸🇰",SI:"🇸🇮",ZA:"🇿🇦",ES:"🇪🇸",SE:"🇸🇪",CH:"🇨🇭",TW:"🇹🇼",TH:"🇹🇭",
+  TR:"🇹🇷",UA:"🇺🇦",AE:"🇦🇪",GB:"🇬🇧",US:"🇺🇸",VN:"🇻🇳",BD:"🇧🇩",NG:"🇳🇬"
+};
+
+function formatDate(iso){
+  var parts=iso.split("-");
+  var months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return months[parseInt(parts[1],10)-1]+" "+parseInt(parts[2],10);
+}
+
+function renderStationStats(data,stationKey){
+  var station;
+  if(stationKey==='total'){
+    station={total_sessions:0,total_listen_hours:0,active_listeners:0,top_countries:[],active_listener_countries:[],daily:[]};
+    var allStations=data.stations||{};
+    var dailyMap={};
+    var activeCountryMap={};
+    var totalCountryMap={};
+    Object.keys(allStations).forEach(function(k){
+      var s=allStations[k];
+      station.total_sessions+=s.total_sessions||0;
+      station.total_listen_hours+=s.total_listen_hours||0;
+      station.active_listeners+=s.active_listeners||0;
+      (s.daily||[]).forEach(function(d){
+        if(!dailyMap[d.date])dailyMap[d.date]={date:d.date,sessions:0,listen_hours:0};
+        dailyMap[d.date].sessions+=d.sessions;
+        dailyMap[d.date].listen_hours+=d.listen_hours;
+      });
+      (s.active_listener_countries||[]).forEach(function(c){
+        if(!activeCountryMap[c.country_code])activeCountryMap[c.country_code]={country:c.country,country_code:c.country_code,sessions:0};
+        activeCountryMap[c.country_code].sessions+=c.sessions;
+      });
+      (s.top_countries||[]).forEach(function(c){
+        if(!totalCountryMap[c.country_code])totalCountryMap[c.country_code]={country:c.country,country_code:c.country_code,sessions:0};
+        totalCountryMap[c.country_code].sessions+=c.sessions;
+      });
+    });
+    station.daily=Object.keys(dailyMap).sort().map(function(k){return dailyMap[k]});
+    station.active_listener_countries=Object.keys(activeCountryMap).map(function(k){return activeCountryMap[k]}).sort(function(a,b){return b.sessions-a.sessions});
+    station.top_countries=Object.keys(totalCountryMap).map(function(k){return totalCountryMap[k]}).sort(function(a,b){return b.sessions-a.sessions});
+  }else{
+    station=data.stations&&data.stations[stationKey];
+    if(!station) station={total_sessions:0,total_listen_hours:0,active_listeners:0,top_countries:[],active_listener_countries:[],daily:[]};
+  }
+
+  document.getElementById("radio-now").textContent=station.active_listeners;
+  document.getElementById("radio-sessions").textContent=station.total_sessions.toLocaleString();
+  document.getElementById("radio-hours").textContent=station.total_listen_hours.toFixed(1);
+
+  var daily=station.daily||[];
+  var chart=document.getElementById("radio-chart");
+  var labels=document.getElementById("radio-chart-labels");
+  chart.textContent="";
+  labels.textContent="";
+
+  var barColors={total:"var(--fg-hi)",edm:"var(--cyan)",lofi:"var(--amber)",synthwave:"#ff66cc","ncs":"#ff5d6c","ncs-house":"#00d1b2","ncs-dubstep":"#7b5cff","ncs-dnb":"#22c55e","ncs-trap":"#f59e0b","ncs-phonk":"#ec4899","ncs-pop":"#38bdf8","ncs-chill":"#a3e635"};
+
+  if(daily.length>0){
+    var maxHours=Math.max.apply(null,daily.map(function(d){return d.listen_hours}))||1;
+    daily.forEach(function(d){
+      var pct=Math.max((d.listen_hours/maxHours)*100,3);
+      var bar=document.createElement("div");
+      bar.className="radio-chart-bar";
+      bar.style.height=pct+"%";
+      bar.style.background=barColors[stationKey]||barColors.lofi;
+      bar.style.opacity="0.85";
+      var tip=document.createElement("div");
+      tip.className="tooltip";
+      tip.textContent=d.date+" · "+d.listen_hours.toFixed(1)+"h, "+d.sessions+" sessions";
+      bar.appendChild(tip);
+      chart.appendChild(bar);
+    });
+    var lStart=document.createElement("span");
+    lStart.textContent=formatDate(daily[0].date);
+    var lEnd=document.createElement("span");
+    lEnd.textContent=formatDate(daily[daily.length-1].date);
+    labels.appendChild(lStart);
+    labels.appendChild(lEnd);
+  }
+
+  var activeCountries=station.active_listener_countries||[];
+  var cEl=document.getElementById("radio-countries");
+  cEl.textContent="";
+  activeCountries.forEach(function(c){
+    var flag=countryFlags[c.country_code]||"🌐";
+    var div=document.createElement("div");
+    div.className="radio-country";
+    var flagSpan=document.createElement("span");
+    flagSpan.className="radio-country-flag";
+    flagSpan.textContent=flag;
+    var sessSpan=document.createElement("span");
+    sessSpan.className="radio-country-sessions";
+    sessSpan.textContent=c.sessions;
+    div.appendChild(flagSpan);
+    div.appendChild(document.createTextNode(c.country));
+    div.appendChild(sessSpan);
+    cEl.appendChild(div);
+  });
+
+  var totalCountries=station.top_countries||[];
+  var tEl=document.getElementById("radio-total-countries");
+  tEl.textContent="";
+  totalCountries.forEach(function(c){
+    var flag=countryFlags[c.country_code]||"🌐";
+    var div=document.createElement("div");
+    div.className="radio-country";
+    var flagSpan=document.createElement("span");
+    flagSpan.className="radio-country-flag";
+    flagSpan.textContent=flag;
+    var sessSpan=document.createElement("span");
+    sessSpan.className="radio-country-sessions";
+    sessSpan.textContent=c.sessions;
+    div.appendChild(flagSpan);
+    div.appendChild(document.createTextNode(c.country));
+    div.appendChild(sessSpan);
+    tEl.appendChild(div);
+  });
+
+  if(!window._globeInitialized){
+    window._radioCountries=activeCountries;
+    initGlobe(activeCountries);
+    window._globeInitialized=true;
+  }
+}
+
+function renderRadioStats(){
+  fetch("https://radio.cliamp.stream/statistics")
+    .then(function(r){return r.json()})
+    .then(function(data){
+      radioStatsData=data;
+      document.getElementById("radio-error").textContent="";
+      renderStationStats(data,currentStatTab);
+    })
+    .catch(function(){
+      var el=document.getElementById("radio-error");
+      el.textContent="";
+      var err=document.createElement("span");
+      err.className="radio-error";
+      err.textContent="Could not load radio stats";
+      el.appendChild(err);
+    });
+}
+
+/* ── Country coords for globe ── */
+var countryCoords={
+  US:[37.09,-95.71],BR:[-14.24,-51.93],GB:[55.38,-3.44],DE:[51.17,10.45],
+  NO:[60.47,8.47],FR:[46.23,2.21],CZ:[49.82,15.47],MX:[23.63,-102.55],
+  HU:[47.16,19.50],SE:[60.13,18.64],CA:[56.13,-106.35],AU:[-25.27,133.78],
+  IN:[20.59,78.96],JP:[36.20,138.25],KR:[35.91,127.77],NL:[52.13,5.29],
+  IT:[41.87,12.57],ES:[40.46,-3.75],PL:[51.92,19.15],PT:[39.40,-8.22],
+  CH:[46.82,8.23],AT:[47.52,14.55],BE:[50.50,4.47],FI:[61.92,25.75],
+  DK:[56.26,9.50],IE:[53.14,-7.69],RO:[45.94,24.97],BG:[42.73,25.49],
+  HR:[45.10,15.20],SK:[48.67,19.70],SI:[46.15,14.99],EE:[58.60,25.01],
+  LV:[56.88,24.60],LT:[55.17,23.88],GR:[39.07,21.82],TR:[38.96,35.24],
+  UA:[48.38,31.17],RU:[61.52,105.32],ZA:[-30.56,22.94],IL:[31.05,34.85],
+  AE:[23.42,53.85],SA:[23.89,45.08],EG:[26.82,30.80],NG:[9.08,8.68],
+  KE:[-0.02,37.91],AR:[-38.42,-63.62],CL:[-35.68,-71.54],CO:[4.57,-74.30],
+  PE:[-9.19,-75.02],PH:[12.88,121.77],TH:[15.87,100.99],VN:[14.06,108.28],
+  MY:[4.21,101.98],SG:[1.35,103.82],ID:[-0.79,113.92],TW:[23.70,120.96],
+  HK:[22.40,114.11],NZ:[-40.90,174.89],PK:[30.38,69.35],BD:[23.68,90.36]
+};
+
+/* ── Canvas globe with land outlines ── */
+var _globeAnim=null;
+var _globeResizeTimer=null;
+var _landPolygons=null;
+
+function topoToPolygons(topo,objectName){
+  var obj=topo.objects[objectName];
+  var arcs=topo.arcs;
+  var tf=topo.transform;
+  var polys=[];
+  function decodeArc(arcIdx){
+    var reverse=arcIdx<0;
+    var idx=reverse?~arcIdx:arcIdx;
+    var arc=arcs[idx];
+    var coords=[];
+    var x=0,y=0;
+    for(var i=0;i<arc.length;i++){
+      x+=arc[i][0];y+=arc[i][1];
+      coords.push([tf.scale[0]*x+tf.translate[0],tf.scale[1]*y+tf.translate[1]]);
+    }
+    if(reverse)coords.reverse();
+    return coords;
+  }
+  function ringFromArcs(arcRefs){
+    var pts=[];
+    for(var i=0;i<arcRefs.length;i++){
+      var c=decodeArc(arcRefs[i]);
+      for(var j=(i>0?1:0);j<c.length;j++)pts.push(c[j]);
+    }
+    return pts;
+  }
+  function extract(geom){
+    if(geom.type==="GeometryCollection"){
+      geom.geometries.forEach(extract);
+    }else if(geom.type==="Polygon"){
+      geom.arcs.forEach(function(ring){polys.push(ringFromArcs(ring))});
+    }else if(geom.type==="MultiPolygon"){
+      geom.arcs.forEach(function(polygon){
+        polygon.forEach(function(ring){polys.push(ringFromArcs(ring))});
+      });
+    }
+  }
+  extract(obj);
+  return polys;
+}
+
+function loadLand(cb){
+  if(_landPolygons)return cb(_landPolygons);
+  fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json")
+    .then(function(r){return r.json()})
+    .then(function(topo){
+      _landPolygons=topoToPolygons(topo,"land");
+      cb(_landPolygons);
+    })
+    .catch(function(){cb([])});
+}
+
+function initGlobe(countries){
+  var canvas=document.getElementById("radio-globe");
+  if(!canvas)return;
+  var ctx=canvas.getContext("2d");
+  if(!ctx)return;
+  if(_globeAnim){cancelAnimationFrame(_globeAnim);_globeAnim=null;}
+
+  var size=canvas.offsetWidth||300;
+  if(size<10)return;
+  var dpr=Math.min(window.devicePixelRatio||1,2);
+  if(size<200)dpr=1;
+  var buf=size*dpr;
+  canvas.width=buf;
+  canvas.height=buf;
+
+  var R=buf*0.42;
+  var cx=buf/2,cy=buf/2;
+  var tilt=0.15;
+
+  var maxSessions=Math.max.apply(null,countries.map(function(c){return c.sessions}))||1;
+  var markers=[];
+  countries.forEach(function(c){
+    var coords=countryCoords[c.country_code];
+    if(!coords)return;
+    var lat=coords[0]*Math.PI/180;
+    var lng=coords[1]*Math.PI/180;
+    var s=3+6*(c.sessions/maxSessions);
+    markers.push({lat:lat,lng:lng,size:s*dpr});
+  });
+
+  var rotation=0;
+  function project(latD,lngD){
+    var lat=latD*Math.PI/180;
+    var lng=lngD*Math.PI/180+rotation;
+    var x=Math.cos(lat)*Math.sin(lng);
+    var y=Math.sin(lat)*Math.cos(tilt)-Math.cos(lat)*Math.cos(lng)*Math.sin(tilt);
+    var z=Math.sin(lat)*Math.sin(tilt)+Math.cos(lat)*Math.cos(lng)*Math.cos(tilt);
+    return{x:cx+x*R,y:cy-y*R,z:z};
+  }
+  function projectRad(lat,lng){
+    var l=lng+rotation;
+    var x=Math.cos(lat)*Math.sin(l);
+    var y=Math.sin(lat)*Math.cos(tilt)-Math.cos(lat)*Math.cos(l)*Math.sin(tilt);
+    var z=Math.sin(lat)*Math.sin(tilt)+Math.cos(lat)*Math.cos(l)*Math.cos(tilt);
+    return{x:cx+x*R,y:cy-y*R,z:z};
+  }
+
+  loadLand(function(land){
+    function draw(){
+      ctx.clearRect(0,0,buf,buf);
+
+      /* Glow */
+      var glow=ctx.createRadialGradient(cx,cy,R*0.8,cx,cy,R*1.2);
+      glow.addColorStop(0,"rgba(55,245,160,0.06)");
+      glow.addColorStop(1,"rgba(0,0,0,0)");
+      ctx.fillStyle=glow;
+      ctx.fillRect(0,0,buf,buf);
+
+      /* Ocean */
+      ctx.beginPath();
+      ctx.arc(cx,cy,R,0,Math.PI*2);
+      ctx.fillStyle="rgba(6,8,6,0.95)";
+      ctx.fill();
+      ctx.strokeStyle="rgba(55,245,160,0.20)";
+      ctx.lineWidth=1*dpr;
+      ctx.stroke();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx,cy,R,0,Math.PI*2);
+      ctx.clip();
+
+      /* Land */
+      for(var i=0;i<land.length;i++){
+        var ring=land[i];
+        var visible=false;
+        ctx.beginPath();
+        for(var j=0;j<ring.length;j++){
+          var p=project(ring[j][1],ring[j][0]);
+          if(p.z>0)visible=true;
+          if(j===0)ctx.moveTo(p.x,p.y);
+          else ctx.lineTo(p.x,p.y);
+        }
+        ctx.closePath();
+        if(visible){
+          ctx.fillStyle="rgba(55,245,160,0.09)";
+          ctx.fill();
+          ctx.strokeStyle="rgba(55,245,160,0.24)";
+          ctx.lineWidth=0.5*dpr;
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+
+      /* Markers */
+      for(var j=0;j<markers.length;j++){
+        var m=markers[j];
+        var p=projectRad(m.lat,m.lng);
+        if(p.z<0)continue;
+        var alpha=0.3+0.7*p.z;
+
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,m.size*2,0,Math.PI*2);
+        ctx.fillStyle="rgba(255,180,84,"+alpha*0.16+")";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,m.size,0,Math.PI*2);
+        ctx.fillStyle="rgba(255,180,84,"+alpha+")";
+        ctx.fill();
+      }
+
+      rotation+=0.003;
+      _globeAnim=requestAnimationFrame(draw);
+    }
+    draw();
+    canvas.classList.add("loaded");
+  });
+}
+
+window.addEventListener("resize",function(){
+  clearTimeout(_globeResizeTimer);
+  _globeResizeTimer=setTimeout(function(){
+    if(window._radioCountries)initGlobe(window._radioCountries);
+  },300);
+});
+
+/* ── Playlist: keyboard activation (click plays via inline onclick) ── */
+document.querySelectorAll('.t-pl-item[data-station]').forEach(function(it){
+  it.addEventListener('keydown',function(e){
+    if(e.key===' '||e.key==='Enter'){e.preventDefault();switchChannel(it.dataset.station)}
+  });
+});
+
+/* ── Ticker: duplicate content for seamless loop ── */
+(function(){var t=document.getElementById('ticker');if(t){t.innerHTML+=t.innerHTML}})();
+
+/* ── Scroll reveals ── */
+(function(){
+  if(!('IntersectionObserver' in window)){
+    document.querySelectorAll('.reveal').forEach(function(n){n.classList.add('in')});
+    return;
+  }
+  var io=new IntersectionObserver(function(es){
+    es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})
+  },{threshold:.12});
+  document.querySelectorAll('.reveal').forEach(function(n){io.observe(n)});
+})();
+
+renderRadioStats();
+setInterval(renderRadioStats,10000);
+</script>
+</body>
+</html>
