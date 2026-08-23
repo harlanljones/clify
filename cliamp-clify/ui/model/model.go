@@ -128,6 +128,7 @@ const (
 	screenLyrics
 	screenJump
 	screenFullVisualizer
+	screenDJMode
 )
 
 func (s topLevelScreen) hidesVisualizer() bool {
@@ -171,6 +172,8 @@ func (s topLevelScreen) label() string {
 		return "Jump to Time"
 	case screenFullVisualizer:
 		return "Visualizer"
+	case screenDJMode:
+		return "DJ Mode"
 	default:
 		return ""
 	}
@@ -231,6 +234,7 @@ const (
 type Model struct {
 	// Core playback
 	player        player.Engine
+	dj            player.DJEngine // optional; nil keeps the normal player screen
 	playlist      *playlist.Playlist
 	configSaver   ConfigSaver
 	vis           *ui.Visualizer
@@ -274,6 +278,7 @@ type Model struct {
 	eqCustomLabel string          // non-empty = plugin-defined preset label (shown instead of "Custom")
 
 	// Overlay / feature state (see state.go for struct definitions)
+	djState        djState
 	search         searchState
 	netSearch      netSearchState
 	provSearch     provSearchState
@@ -409,6 +414,8 @@ func (m Model) activeScreen() topLevelScreen {
 	switch {
 	case m.fullVis:
 		return screenFullVisualizer
+	case m.djState.visible:
+		return screenDJMode
 	case m.keymap.visible:
 		return screenKeymap
 	case m.devicePicker.visible:
@@ -462,7 +469,7 @@ func (m Model) usesContentFirstLayout() bool {
 	}
 	if m.keymap.visible || m.devicePicker.visible || m.fileBrowser.visible ||
 		m.navBrowser.visible || m.themePicker.visible || m.queue.visible ||
-		m.search.active {
+		m.search.active || m.djState.visible {
 		return true
 	}
 	if m.plPicker.visible && m.plPicker.screen == plPickerChoose {

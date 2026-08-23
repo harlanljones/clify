@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- DJ mode foundation in `cliamp-clify/player`: optional `DJEngine`, dual-deck
+  state, ramped faders, equal-power crossfade curves, transition state, BPM
+  estimation, and confidence-gated sync.
+- Python `DjAgent`, `agent_manifest.dj.json`, and DJ controller methods for the
+  future `dj.*` command surface.
+
+### Documentation
+
+- Added [`docs/dj.md`](docs/dj.md) with implementation status, boundaries, and
+  build/test instructions.
+
 ## [1.7.0] - 2026-08-22
 
 ### Added

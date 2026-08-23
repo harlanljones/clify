@@ -132,6 +132,8 @@ func (m Model) View() tea.View {
 	switch screen {
 	case screenFullVisualizer:
 		content = m.renderFullVisualizer()
+	case screenDJMode:
+		content = m.renderDJMode()
 	default:
 		// Overlays render in the playlist region (renderMainBody), with their
 		// header/help supplied by renderPlaylistHeader / renderHelp. List-heavy
@@ -231,6 +233,9 @@ func (m Model) mainSections(playlist string, includeTransient, contentFirst bool
 func (m Model) renderTierHelp() string {
 	if m.layout.tier != layoutMinimal {
 		return m.renderHelp()
+	}
+	if m.djState.visible {
+		return m.commandHelp(commandModeDJ)
 	}
 	if ov, ok := m.activeOverlay(); ok {
 		return fitHelpLine(ov.help(&m))
@@ -963,6 +968,9 @@ func (m Model) renderHelp() string {
 	case focusEQ:
 		return m.commandHelp(commandModeEQ)
 	default:
+		if m.djState.visible {
+			return m.commandHelp(commandModeDJ)
+		}
 		return m.commandHelp(commandModeMain)
 	}
 }
@@ -986,6 +994,13 @@ func (m Model) renderBottomStatus() string {
 		left = speedLabel + activeToggle.Render("["+speedVal+"]")
 	} else {
 		left = speedLabel + dimStyle.Render("[") + trackStyle.Render(speedVal) + dimStyle.Render("]")
+	}
+	if m.dj != nil {
+		djLabel := labelStyle.Render("DJ ")
+		if m.djState.visible {
+			djLabel = activeToggle.Render("DJ ▸ ")
+		}
+		left += "  " + djLabel + helpKeyStyle.Render("[D]")
 	}
 
 	// Right: network stream stats (empty for local files).

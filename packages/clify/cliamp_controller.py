@@ -124,3 +124,44 @@ class CliampController:
 
     def repeat(self) -> dict:
         return self._mutate(["repeat"])
+
+    # -- DJ control (dj.control scope) --------------------------------------
+
+    def dj(self, command: str, *args) -> dict:
+        """Send a namespaced DJ command and return post-command status."""
+        if not command or any("\n" in str(arg) for arg in args):
+            raise ValueError("invalid DJ command")
+        return self._mutate(["dj." + command, *[str(arg) for arg in args]])
+
+    def dj_status(self) -> dict:
+        return self._reader._run_json(["dj", "status", "--json"])
+
+    def dj_load(self, deck, path) -> dict:
+        return self.dj("load", deck, path)
+
+    def dj_play(self, deck=None) -> dict:
+        return self.dj("play", *( [deck] if deck is not None else [] ))
+
+    def dj_pause(self, deck=None) -> dict:
+        return self.dj("pause", *( [deck] if deck is not None else [] ))
+
+    def dj_crossfade(self, position) -> dict:
+        return self.dj("crossfade", position)
+
+    def dj_pitch(self, deck, ratio) -> dict:
+        return self.dj("pitch", deck, ratio)
+
+    def dj_nudge(self, deck, amount) -> dict:
+        return self.dj("nudge", deck, amount)
+
+    def dj_sync(self, deck) -> dict:
+        return self.dj("sync", deck)
+
+    def dj_cue(self, deck, position) -> dict:
+        return self.dj("cue", deck, position)
+
+    def dj_loop(self, deck, start, end) -> dict:
+        return self.dj("loop", deck, start, end)
+
+    def dj_record(self, action) -> dict:
+        return self.dj("record", action)

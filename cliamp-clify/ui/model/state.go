@@ -24,6 +24,11 @@ type searchState struct {
 	scroll  int
 }
 
+type djState struct {
+	visible bool
+	focus   int // 0 = deck A, 1 = deck B
+}
+
 type playlistUndo struct {
 	active    bool
 	snapshot  playlist.Snapshot

@@ -6,6 +6,12 @@
 
 `clify` is a Python CLI and reference implementation of the **Metric-Driven Agent-Driven Development (ADD)** framework specified in [AGENTS.md](https://github.com/harlanljones/clify/blob/main/AGENTS.md). It provides extended Spotify library aggregation, natural-language playback control, and deterministic SLA guardrails, designed as the companion CLI to [`cliamp-clify`](https://github.com/harlanljones/clify/tree/main/cliamp-clify).
 
+The package also includes the scope-gated `DjAgent` and
+`agent_manifest.dj.json`. DJ requests such as `blend into the next song` and
+`sync deck B` are routed to `CliampController` under `dj.read`/`dj.control`.
+See [`../docs/dj.md`](../docs/dj.md) for the current Go/Python integration
+status.
+
 
 ---
 
@@ -111,4 +117,3 @@ pytest
 ## License
 
 [MIT](https://github.com/harlanljones/clify/blob/main/LICENSE) © 2026 harlan
-

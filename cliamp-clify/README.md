@@ -89,6 +89,14 @@ cliamp https://example.com/stream  # play a URL
 
 Press `Ctrl+K` to see all keybindings.
 
+## DJ mode foundation
+
+The fork includes an optional dual-deck TUI with `D`-key activation, deck
+focus, sample-ramped faders, equal-power crossfade curves, BPM confidence
+detection, and sync guardrails. Live speaker-graph mixing and public
+`cliamp dj` commands are not available yet. See the repository [DJ documentation](../docs/dj.md) and
+[implementation plan](../docs/DJ_MODE_PLAN.md) for current status.
+
 **Configure remote providers** (Navidrome, Plex, Jellyfin, Spotify, YouTube Music, NetEase Cloud Music) with the interactive wizard:
 
 ```sh

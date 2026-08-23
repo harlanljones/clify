@@ -32,6 +32,9 @@ type StreamerFactory func(uri string) (beep.StreamSeekCloser, beep.Format, time.
 //	     ├─ current: [Decode A] → [Resample A]
 //	     └─ next:    [Decode B] → [Resample B]  (preloaded)
 type Player struct {
+	// DJController is embedded so DJ support is opt-in at the model boundary
+	// without extending Engine or changing normal playback's audio graph.
+	*DJController
 	mu              sync.Mutex
 	sr              beep.SampleRate
 	gapless         *gaplessStreamer
@@ -83,7 +86,7 @@ func New(q Quality) (*Player, error) {
 	if bitDepth != 32 {
 		bitDepth = 16
 	}
-	p := &Player{sr: sr, resampleQuality: q.ResampleQuality, bitDepth: bitDepth}
+	p := &Player{DJController: NewDJController(), sr: sr, resampleQuality: q.ResampleQuality, bitDepth: bitDepth}
 	p.volMin.Store(math.Float64bits(-50))
 	p.speed.Store(math.Float64bits(1.0))
 	p.gapless = &gaplessStreamer{}

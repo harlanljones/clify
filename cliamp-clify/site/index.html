@@ -4,20 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CLIAMP — Terminal Music Player</title>
-<meta name="description" content="A retro terminal music player inspired by Winamp 2.x. Play local files, YouTube, Spotify, Qobuz, Plex, Jellyfin, Emby, Navidrome, SoundCloud, NetEase, and 30,000+ radio stations with a spectrum visualizer and 10-band EQ.">
+<meta name="description" content="A retro terminal music player inspired by Winamp 2.x. Play local files, YouTube, Spotify, Qobuz, Plex, Jellyfin, Emby, Navidrome, SoundCloud, NetEase, and 30,000+ radio stations with a spectrum visualizer, 10-band EQ, and DJ mode foundation.">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 
 <!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="CLIAMP — Terminal Music Player">
-<meta property="og:description" content="A retro terminal music player inspired by Winamp 2.x. Play YouTube, Spotify, Qobuz, Plex, Jellyfin, Emby, SoundCloud, NetEase, and 30,000+ radio stations from your terminal with a spectrum visualizer and 10-band EQ.">
+<meta property="og:description" content="A retro terminal music player inspired by Winamp 2.x. Play YouTube, Spotify, Qobuz, Plex, Jellyfin, Emby, SoundCloud, NetEase, and 30,000+ radio stations from your terminal with a spectrum visualizer, 10-band EQ, and DJ mode foundation.">
 <meta property="og:image" content="https://cliamp.stream/og-image.png">
 <meta property="og:url" content="https://cliamp.stream">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="CLIAMP — Terminal Music Player">
-<meta name="twitter:description" content="A retro terminal music player inspired by Winamp 2.x. Play YouTube, Spotify, Qobuz, Plex, Jellyfin, Emby, SoundCloud, NetEase, and 30,000+ radio stations from your terminal with a spectrum visualizer and 10-band EQ.">
+<meta name="twitter:description" content="A retro terminal music player inspired by Winamp 2.x. Play YouTube, Spotify, Qobuz, Plex, Jellyfin, Emby, SoundCloud, NetEase, and 30,000+ radio stations from your terminal with a spectrum visualizer, 10-band EQ, and DJ mode foundation.">
 <meta name="twitter:image" content="https://cliamp.stream/og-image.png">
 
 <style>
@@ -755,6 +755,7 @@ user_id = "your-account-user-id"</code></pre>
       <div class="feature"><div class="feature-icon">→</div><div class="feature-name">HTTP Streaming</div><p>Play from URLs, internet radio, remote M3U playlists, and HLS (<code>.m3u8</code>) live streams via ffmpeg.</p></div>
       <div class="feature"><div class="feature-icon">♪</div><div class="feature-name">Synced Lyrics</div><p>Embedded local lyrics first, then LRCLIB/NetEase fallback. Auto-scrolling for timestamped lyrics.</p></div>
       <div class="feature"><div class="feature-icon">⇄</div><div class="feature-name">Gapless Playback</div><p>Seamless transitions with preloaded next-track buffering.</p></div>
+      <div class="feature"><div class="feature-icon">◫</div><div class="feature-name">DJ Mode Foundation</div><p>Optional dual-deck engine primitives with ramped faders, equal-power crossfades, BPM confidence, and sync guardrails. TUI controls are in development.</p></div>
       <div class="feature"><div class="feature-icon">♬</div><div class="feature-name">MPRIS / Media Keys</div><p>Desktop integration. Hardware media keys, <code>playerctl</code>, and embedded local cover art.</p></div>
       <div class="feature"><div class="feature-icon">▮</div><div class="feature-name">Quickshell Widget (Omarchy)</div><p>Drop-in <a href="https://quickshell.org">Quickshell</a> now-playing card with a Winamp 2-style spectrum, tracking your active Omarchy theme. <a href="https://github.com/bjarneo/cliamp/blob/main/docs/quickshell.md">Setup</a>.</p></div>
       <div class="feature"><div class="feature-icon">⚙</div><div class="feature-name">Audio Quality</div><p>Configurable sample rate (22kHz-192kHz), up to 5 seconds of buffering, and resampling.</p></div>

@@ -42,6 +42,9 @@ func New(p player.Engine, pl *playlist.Playlist, providers []ProviderEntry, defa
 		historyStore:     history.New(),
 		showAlbumHeaders: false,
 	}
+	if dj, ok := p.(player.DJEngine); ok {
+		m.dj = dj
+	}
 	if luaMgr != nil {
 		m.pluginEmit = &pluginEmitState{}
 	}
@@ -67,6 +70,10 @@ func New(p player.Engine, pl *playlist.Playlist, providers []ProviderEntry, defa
 func (m *Model) SetVisVolumeLinked(linked bool) {
 	m.visVolumeLinked = linked
 }
+
+// SetDJEngine enables the optional DJ control surface. It intentionally does
+// not alter the legacy Engine seam, allowing existing model fakes to compile.
+func (m *Model) SetDJEngine(dj player.DJEngine) { m.dj = dj }
 
 // findProviderWith returns the first registered provider that satisfies the
 // given capability check. This is used for cross-provider shortcuts like "N"

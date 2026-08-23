@@ -1,0 +1,21 @@
+{
+  "agent_id": "dj_agent",
+  "version": "1.0.0",
+  "description": "control DJ deck playback, blend into the next song, crossfade, pitch, sync, cues, loops, and recording",
+  "allowed_scopes": ["dj.read", "dj.control"],
+  "prohibited_scopes": ["library.write", "user.billing"],
+  "required_tools": ["CliampController"],
+  "token_tables": {
+    "allowed_tokens": {
+      "dj": "dj.control", "deck": "dj.control", "blend": "dj.control",
+      "crossfade": "dj.control", "mix": "dj.control", "pitch": "dj.control",
+      "nudge": "dj.control", "sync": "dj.control", "cue": "dj.control",
+      "loop": "dj.control", "record": "dj.control", "brake": "dj.control",
+      "turntable": "dj.control", "status": "dj.read"
+    },
+    "prohibited_tokens": {
+      "delete": "library.write", "clear": "library.write",
+      "billing": "user.billing", "payment": "user.billing"
+    }
+  }
+}

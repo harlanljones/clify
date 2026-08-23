@@ -42,6 +42,7 @@ const (
 	commandModeThemePickerFilter
 	commandModeVisPickerFilter
 	commandModeProviderSearch
+	commandModeDJ
 )
 
 const commandModeAny = ^commandMode(0)
@@ -124,6 +125,7 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeMain, Keys: []string{"ctrl+f"}, KeyLabel: "Ctrl+F", Label: "Search active provider or YouTube", Keymap: true, ContextHelp: true},
 	{Mode: commandModeMain, Keys: []string{"u"}, KeyLabel: "u", Label: "Load URL (stream/playlist)", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"d"}, KeyLabel: "d", Label: "Audio device picker", Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"D"}, KeyLabel: "D", Label: "DJ mode", Keymap: true, ContextHelp: true},
 	{Mode: commandModeMain, Keys: []string{"y"}, KeyLabel: "y", Label: "Show lyrics", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"tab"}, KeyLabel: "Tab", Label: "Toggle focus", Keymap: true},
 	{Mode: commandModeMain, Keys: []string{"esc", "backspace", "b"}, KeyLabel: "Esc", Label: "Back to provider", Keymap: true, ContextHelp: true, Cancel: true},
@@ -166,6 +168,12 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeLyrics, Keys: []string{"r"}, KeyLabel: "r", Label: "Retry", ContextHelp: true, Primary: true, Enabled: func(m Model) bool { return !m.lyrics.loading && (m.lyrics.err != nil || len(m.lyrics.lines) == 0) }},
 	{Mode: commandModeLyrics, Keys: []string{"esc"}, KeyLabel: "Esc", Label: "Close", ContextHelp: true, Cancel: true},
 	{Mode: commandModeInfo, Keys: []string{"esc"}, KeyLabel: "Esc", Label: "Close", ContextHelp: true, Cancel: true},
+	{Mode: commandModeDJ, Keys: []string{"esc", "D"}, KeyLabel: "Esc / D", Label: "Exit DJ mode", ContextHelp: true, Cancel: true},
+	{Mode: commandModeDJ, Keys: []string{"1", "2"}, KeyLabel: "1 / 2", Label: "Focus deck A / B", ContextHelp: true},
+	{Mode: commandModeDJ, Keys: []string{"left", "right", "\\"}, KeyLabel: "Left Right \\", Label: "Crossfader", ContextHelp: true},
+	{Mode: commandModeDJ, Keys: []string{"[", "]"}, KeyLabel: "[ ]", Label: "Pitch nudge", ContextHelp: true},
+	{Mode: commandModeDJ, Keys: []string{"s"}, KeyLabel: "s", Label: "Sync focused deck", ContextHelp: true},
+	{Mode: commandModeDJ, Keys: []string{"c"}, KeyLabel: "c", Label: "Center crossfader", ContextHelp: true},
 }
 
 func (m Model) commandHelp(mode commandMode) string {

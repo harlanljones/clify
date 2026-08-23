@@ -10,6 +10,11 @@ The `clify` monorepo unites two complementary terminal music products:
 1. **[`cliamp-clify`](cliamp-clify/)** — A feature-rich fork of [cliamp](https://github.com/bjarneo/cliamp) (retro Winamp-inspired terminal music player in Go) with native **Spotify superpowers**: Made For You mix resolution, Spotify-derived Recently Played albums & playlists, Followed playlists viewport/filter fixes, headless `spotify login`, and default Spotify launch.
 2. **[`clify` CLI & ADD Framework](packages/clify/)** — A complementary Python CLI tool and reference implementation of the Metric-Driven Agent-Driven Development ([AGENTS.md](AGENTS.md)) specification, extending `cliamp-clify` with cross-provider library unification, natural-language playback agents, PKCE OAuth, and deterministic SLA guardrails.
 
+DJ mode foundation is now shared across both products: Go dual-deck/fader/BPM
+primitives live in `cliamp-clify/player`, while the Python `DjAgent` provides
+scope-gated DJ command routing. See [`docs/dj.md`](docs/dj.md) for the current
+implementation boundary.
+
 ---
 
 ## System Architecture
@@ -55,6 +60,9 @@ graph TD
 - **Followed Playlists Viewport Fixes:** Header-aware scroll calculation keeps bottom rows visible; `/` filter mode preserves section headers and result count.
 - **Headless `spotify login`:** Built-in PKCE login command authorizing the player without starting audio playback.
 - **Versioned IPC Contract:** Exposes `cliamp.history.unified/1` over Unix socket for companion tools.
+- **DJ mode:** Press `D` for the dual-deck control screen. It exposes deck
+  focus, crossfader, pitch nudge, and confidence-gated sync. Live speaker-graph
+  mixing and public DJ CLI commands are still in development.
 
 ### 2. `clify` (Extended Spotify CLI & ADD Framework)
 - **Unified Library Querying (`clify library`):** Merges local cliamp listening history and Spotify Web API library into a structured, sorted view (Recently Played → Library → Your Playlists → Made For You).
@@ -62,6 +70,8 @@ graph TD
 - **Natural Language Playback Control (`clify play`):** Agent-orchestrated command routing with strict scope guardrails (§2.2) and post-action verification.
 - **Headless PKCE OAuth (`clify spotify login`):** Mode-0600 token storage (`~/.config/clify/spotify.json`) with automated token refresh and credential redaction.
 - **Metric-Driven ADD Guardrails:** Deterministic SLAs on every execution (latency ≤ 2.5s, cost ≤ $0.02, confidence ≥ 0.90), safe failure modes, and runtime time-series monitoring.
+- **DJ agent:** `DjAgent` routes requests such as “blend into the next song”
+  and “sync deck B” under `dj.read`/`dj.control` scopes.
 
 ---
 

@@ -562,3 +562,13 @@ the closed cliamp TUI is tracked in
 the TUI implementation in Go, uses cliamp's existing Spotify session and local
 history, exposes a versioned IPC contract back to clify, stages the fork under
 a separate binary, and preserves a tested rollback path.
+
+## Follow-on — DJ mode foundation 🚧
+
+The first DJ engine layer is implemented and tested in
+[`cliamp-clify/player`](cliamp-clify/player): optional `DJEngine`, deck state,
+ramped/equal-power faders, transition state, BPM estimation, and confidence-
+gated sync. The Python side includes `DjAgent` and its manifest. Remaining
+milestones are live pipeline/speaker integration, TUI controls, IPC/CLI
+dispatch, Auto-DJ, cues/loops/FX, and recording. See
+[`docs/dj.md`](docs/dj.md) and [`docs/DJ_MODE_PLAN.md`](docs/DJ_MODE_PLAN.md).

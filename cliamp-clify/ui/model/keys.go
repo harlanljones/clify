@@ -199,8 +199,15 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	if m.fullVis {
 		return m.handleFullVisualizerKey(msg)
 	}
+	if m.djState.visible {
+		return m.handleDJKey(msg)
+	}
 	if m.keymap.visible {
 		return m.handleKeymapKey(msg)
+	}
+	if msg.String() == "D" {
+		m.openDJMode()
+		return nil
 	}
 
 	// Audio device picker overlay
@@ -816,6 +823,9 @@ func (m *Model) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.devicePicker.loading = true
 			return listDevicesCmd()
 		}
+
+	case "D":
+		m.openDJMode()
 
 	case "]":
 		m.changeSpeed(0.25)

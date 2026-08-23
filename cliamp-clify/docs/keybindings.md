@@ -1,5 +1,20 @@
 # Keybindings
 
+## DJ mode
+
+When the optional DJ engine is available, press `D` to open the DJ screen.
+
+| Key | Action |
+|---|---|
+| `D` | Open / close DJ mode |
+| `1` `2` | Focus deck A / B |
+| `Tab` | Cycle deck focus |
+| `Left` `Right` / `h` `l` | Move crossfader |
+| `\` | Center crossfader |
+| `[` `]` | Pitch nudge on the focused deck |
+| `s` | Sync the focused deck when BPM confidence is sufficient |
+| `Esc` | Close DJ mode |
+
 Press `Ctrl+K` from any mode, or `?` from the player, to see keybindings. The
 keymap starts with actions for the screen you opened it from, followed by player
 and library commands.
