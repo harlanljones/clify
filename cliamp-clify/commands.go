@@ -67,6 +67,7 @@ func buildApp() *cli.Command {
 			return run(ov, c.Args().Slice(), c.Bool("daemon"))
 		},
 		Commands: []*cli.Command{
+			versionCommand(),
 			upgradeCommand(),
 			pluginsCommand(),
 			playlistCommand(),
@@ -217,6 +218,17 @@ func overridesFromFlags(c *cli.Command) (config.Overrides, error) {
 		ov.ExpandPlaylist = &v
 	}
 	return ov, nil
+}
+
+func versionCommand() *cli.Command {
+	return &cli.Command{
+		Name:  "version",
+		Usage: "print the clify version",
+		Action: func(ctx context.Context, c *cli.Command) error {
+			_, err := fmt.Printf("%s version %s\n", c.Root().Name, version)
+			return err
+		},
+	}
 }
 
 func upgradeCommand() *cli.Command {

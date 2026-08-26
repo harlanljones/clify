@@ -255,3 +255,81 @@ def test_playlist_tracks_404_unbrowsable_contract_shape():
     assert result["items"] == []
     assert result["total"] == 0
     assert result["unbrowsable"] is True
+
+
+SAVED_TRACKS_PAGE = {
+    "href": "https://api.spotify.com/v1/me/tracks?limit=50",
+    "limit": 50,
+    "next": None,
+    "offset": 0,
+    "previous": None,
+    "total": 1,
+    "items": [{
+        "added_at": "2026-08-01T09:00:00Z",
+        "track": {"id": "track-1", "name": "Saved Song", "type": "track",
+                  "uri": "spotify:track:track-1"},
+    }],
+}
+
+SAVED_ALBUMS_PAGE = {
+    "href": "https://api.spotify.com/v1/me/albums?limit=50",
+    "limit": 50,
+    "next": None,
+    "offset": 0,
+    "previous": None,
+    "total": 1,
+    "items": [{
+        "added_at": "2026-08-02T09:00:00Z",
+        "album": {"id": "album-1", "name": "Saved Album", "type": "album",
+                  "uri": "spotify:album:album-1"},
+    }],
+}
+
+TOP_TRACKS_PAGE = {
+    "items": [{"id": "top-track", "name": "Top Track", "type": "track",
+               "uri": "spotify:track:top-track"}],
+    "total": 1,
+    "next": None,
+}
+
+TOP_ARTISTS_PAGE = {
+    "items": [{"id": "top-artist", "name": "Top Artist", "type": "artist",
+               "uri": "spotify:artist:top-artist"}],
+    "total": 1,
+    "next": None,
+}
+
+
+def test_saved_tracks_contract_retains_track_and_added_at():
+    result = client(SAVED_TRACKS_PAGE).get_saved_tracks(limit=50)
+    assert set(result) == {"items", "total"}
+    item = result["items"][0]
+    assert item["added_at"] == "2026-08-01T09:00:00Z"
+    assert item["track"]["name"] == "Saved Song"
+    assert item["track"]["uri"] == "spotify:track:track-1"
+    assert result["total"] == 1
+
+
+def test_saved_albums_contract_retains_album():
+    result = client(SAVED_ALBUMS_PAGE).get_saved_albums(limit=50)
+    assert set(result) == {"items", "total"}
+    item = result["items"][0]
+    assert item["album"]["name"] == "Saved Album"
+    assert item["album"]["uri"] == "spotify:album:album-1"
+    assert result["total"] == 1
+
+
+def test_top_tracks_contract_is_flat_track_list():
+    result = client(TOP_TRACKS_PAGE).get_top_tracks()
+    assert set(result) == {"items", "total"}
+    assert result["items"][0]["name"] == "Top Track"
+    assert result["items"][0]["type"] == "track"
+    assert result["total"] == 1
+
+
+def test_top_artists_contract_is_flat_artist_list():
+    result = client(TOP_ARTISTS_PAGE).get_top_artists()
+    assert set(result) == {"items", "total"}
+    assert result["items"][0]["name"] == "Top Artist"
+    assert result["items"][0]["type"] == "artist"
+    assert result["total"] == 1

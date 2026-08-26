@@ -6,6 +6,27 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
+func TestVersionCommandWiring(t *testing.T) {
+	cmd := versionCommand()
+
+	if cmd == nil || cmd.Name != "version" {
+		t.Fatalf("version command = %#v, want a subcommand named 'version'", cmd)
+	}
+	if cmd.Usage == "" {
+		t.Fatal("version command missing Usage")
+	}
+	var registered bool
+	for _, sub := range buildApp().Commands {
+		if sub.Name == "version" {
+			registered = true
+			break
+		}
+	}
+	if !registered {
+		t.Fatal("version subcommand not registered on the root command")
+	}
+}
+
 func TestSpotifyLoginCommandWiring(t *testing.T) {
 	cmd := spotifyCommand()
 

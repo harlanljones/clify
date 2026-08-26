@@ -18,6 +18,8 @@ _HISTORY_TERMS = {"history", "recently", "played"}
 _LIBRARY_TERMS = {
     "library", "playlist", "playlists",
     "mix", "mixes", "radio", "radios", "discover",
+    "saved", "liked", "album", "albums",
+    "top", "tracks", "artist", "artists", "relisten",
 }
 
 
@@ -182,6 +184,22 @@ class UnifiedLibraryClient:
             except Exception:
                 sections["made_for_you"] = []
                 failures.append("spotify.generated")
+        for key, method, label in (
+            ("saved_tracks", "get_saved_tracks", "spotify.saved"),
+            ("saved_albums", "get_saved_albums", "spotify.saved"),
+            ("top_tracks", "get_top_tracks", "spotify.top"),
+            ("top_artists", "get_top_artists", "spotify.top"),
+        ):
+            reader = getattr(self.spotify, method, None)
+            if not callable(reader):
+                continue
+            try:
+                payload = reader()
+                entries = payload.get("items", []) if isinstance(payload, Mapping) else payload
+                sections[key] = list(entries or [])
+            except Exception:
+                sections[key] = []
+                failures.append(label)
         self.failed_sources = list(dict.fromkeys(failures))
         sections["partial"] = bool(self.failed_sources)
         sections["failed_sources"] = list(self.failed_sources)

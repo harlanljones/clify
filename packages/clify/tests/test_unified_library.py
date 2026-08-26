@@ -69,6 +69,22 @@ def providers():
         }],
         "total": 1,
     }
+    spotify.get_saved_tracks.return_value = {
+        "items": [{"added_at": "2025-06-01T00:00:00Z", "track": {"name": "Liked One"}}],
+        "total": 1,
+    }
+    spotify.get_saved_albums.return_value = {
+        "items": [{"added_at": "2025-06-02T00:00:00Z", "album": {"name": "Album One"}}],
+        "total": 1,
+    }
+    spotify.get_top_tracks.return_value = {
+        "items": [{"name": "Top Track", "type": "track"}],
+        "total": 1,
+    }
+    spotify.get_top_artists.return_value = {
+        "items": [{"name": "Top Artist", "type": "artist"}],
+        "total": 1,
+    }
     return cliamp, spotify
 
 
@@ -137,6 +153,7 @@ def test_library_sections_include_made_for_you(providers):
 
     assert list(result) == [
         "recently_played", "library", "your_playlists", "made_for_you",
+        "saved_tracks", "saved_albums", "top_tracks", "top_artists",
         "partial", "failed_sources",
     ]
     assert result["made_for_you"] == [{
@@ -148,6 +165,41 @@ def test_library_sections_include_made_for_you(providers):
     }]
     assert result["partial"] is False
     assert result["failed_sources"] == []
+
+
+def test_library_sections_expose_saved_and_top(providers):
+    result = UnifiedLibraryClient(*providers).get_library_sections()
+
+    assert result["saved_tracks"] == [{
+        "added_at": "2025-06-01T00:00:00Z",
+        "track": {"name": "Liked One"},
+    }]
+    assert result["saved_albums"] == [{
+        "added_at": "2025-06-02T00:00:00Z",
+        "album": {"name": "Album One"},
+    }]
+    assert result["top_tracks"] == [{"name": "Top Track", "type": "track"}]
+    assert result["top_artists"] == [{"name": "Top Artist", "type": "artist"}]
+    assert result["partial"] is False
+    assert result["failed_sources"] == []
+
+
+def test_saved_and_top_provider_failure_is_isolated(providers):
+    cliamp, spotify = providers
+    spotify.get_saved_tracks.side_effect = RuntimeError("offline")
+    spotify.get_top_artists.side_effect = RuntimeError("offline")
+
+    result = UnifiedLibraryClient(cliamp, spotify).get_library_sections()
+
+    assert result["saved_tracks"] == []
+    assert result["saved_albums"] == [{
+        "added_at": "2025-06-02T00:00:00Z",
+        "album": {"name": "Album One"},
+    }]
+    assert result["top_tracks"] == [{"name": "Top Track", "type": "track"}]
+    assert result["top_artists"] == []
+    assert result["partial"] is True
+    assert set(result["failed_sources"]) == {"spotify.saved", "spotify.top"}
 
 
 def test_missing_generated_capability_is_absent_not_failed(providers):
@@ -234,6 +286,24 @@ class TestUnifiedLibraryAgent:
         # Prohibited playback tokens win over in-vocabulary library terms.
         assert agent.is_task_authorized("Skip this song in my daily mix.") is False
 
+    def test_saved_and_top_vocabulary_authorization(self, providers):
+        agent = UnifiedLibraryAgent(tools=list(providers))
+        assert agent.is_task_authorized("Show my liked songs.") is True
+        assert agent.is_task_authorized("List my saved albums.") is True
+        assert agent.is_task_authorized("Show my top artists.") is True
+        assert agent.is_task_authorized("What are my top tracks?") is True
+        # Prohibited playback tokens still win.
+        assert agent.is_task_authorized("Skip my liked songs.") is False
+
+    def test_saved_and_top_queries_route_to_library_sections(self, providers):
+        agent = UnifiedLibraryAgent(tools=list(providers))
+        liked = agent.process_instruction("Show my liked songs")
+        assert liked["status"] == "SUCCESS"
+        assert "saved_tracks" in liked["data"]
+        top = agent.process_instruction("Show my top artists")
+        assert top["status"] == "SUCCESS"
+        assert "top_artists" in top["data"]
+
     def test_mix_queries_route_to_library_sections(self, providers):
         agent = UnifiedLibraryAgent(tools=list(providers))
         result = agent.process_instruction("Show my daily mixes")
@@ -252,5 +322,9 @@ class TestUnifiedLibraryAgent:
 def test_manifest_is_valid_and_read_only():
     with open("agent_manifest.cliamp_library.json", encoding="utf-8") as stream:
         manifest = json.load(stream)
-    assert manifest["allowed_scopes"] == ["playlists.read", "history.read"]
+    assert manifest["allowed_scopes"] == [
+        "playlists.read", "history.read", "library.read"
+    ]
     assert "playback.control" in manifest["prohibited_scopes"]
+    assert manifest["token_tables"]["allowed_tokens"]["liked"] == "library.read"
+    assert manifest["token_tables"]["allowed_tokens"]["top"] == "history.read"

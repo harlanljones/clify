@@ -1,8 +1,8 @@
 {
   "agent_id": "cliamp_library_agent",
-  "version": "1.1.0",
-  "description": "Show a unified library of playlists, daily mixes, radios, and recently played history from local cliamp and Spotify sources, including Spotify-generated Discover Weekly recommendations.",
-  "allowed_scopes": ["playlists.read", "history.read"],
+  "version": "1.2.0",
+  "description": "Show a unified library of playlists, daily mixes, radios, recently played history, liked songs, saved albums, and top tracks/artists from local cliamp and Spotify sources, including Spotify-generated Discover Weekly recommendations.",
+  "allowed_scopes": ["playlists.read", "history.read", "library.read"],
   "prohibited_scopes": ["playback.control", "playlists.write", "player.config"],
   "required_tools": ["CliampClient", "SpotifyClient"],
   "token_tables": {
@@ -17,7 +17,16 @@
       "discover": "playlists.read",
       "history": "history.read",
       "recently": "history.read",
-      "played": "history.read"
+      "played": "history.read",
+      "saved": "library.read",
+      "liked": "library.read",
+      "album": "library.read",
+      "albums": "library.read",
+      "top": "history.read",
+      "tracks": "history.read",
+      "artist": "history.read",
+      "artists": "history.read",
+      "relisten": "history.read"
     },
     "prohibited_tokens": {
       "queue": "playback.control",

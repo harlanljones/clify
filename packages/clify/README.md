@@ -17,7 +17,7 @@ status.
 
 ## Features
 
-- **Unified Music Library (`clify library`):** Merges local `cliamp` listening history and Spotify Web API data into a single structured view (`Recently Played` → `Library` → `Your Playlists` → `Made For You`).
+- **Unified Music Library (`clify library`):** Merges local `cliamp` listening history and Spotify Web API data into a single structured view (`Recently Played` → `Library` → `Your Playlists` → `Made For You` → `Liked Songs` → `Saved Albums` → `Top Tracks` → `Top Artists`).
 - **Cross-Provider Recent History (`clify recent`):** Deduplicates tracks across providers with timestamped ordering and per-source failure isolation (`partial: true`).
 - **Natural Language Playback (`clify play`):** Agent-orchestrated command routing with strict scope guardrails (§2.2) and post-action verification.
 - **Headless Spotify PKCE Login (`clify spotify login`):** OAuth 2.0 PKCE with local loopback callback, mode-0600 storage, and automatic token refresh (no Client Secret needed).

@@ -20,7 +20,12 @@ from cliamp_client import ToolError
 AUTHORIZE_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 DEFAULT_REDIRECT_URI = "http://127.0.0.1:8888/callback"
-SCOPES = ("playlist-read-private", "user-read-recently-played")
+SCOPES = (
+    "playlist-read-private",
+    "user-read-recently-played",
+    "user-library-read",
+    "user-top-read",
+)
 CALLBACK_TIMEOUT_SECONDS = 180
 
 

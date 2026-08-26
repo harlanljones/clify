@@ -82,8 +82,23 @@ make vet          # go vet ./...
 make lint         # vet + staticcheck (if installed)
 make fmt          # gofmt -l -w .
 make check        # fmt + vet + test
-make install      # installs binary into ~/.local/bin
+make install      # === make build + install -m 755 → ~/.local/bin/cliamp
 ```
+
+### Keep the locally-runnable binary current (do this every time)
+
+The `cliamp` you run comes from `~/.local/bin`, **not** the repo build dir.
+After **any** change to cliamp-clify Go source (or to the `clify` Python
+package the fork extends), rebuild **and** reinstall so the local run reflects
+HEAD. Make this the standard final step of every local workflow:
+
+```sh
+make install       # build + install → ~/.local/bin/cliamp
+cliamp --version   # confirm the new version string (e.g. "<sha>-dirty")
+```
+
+Only running `make build` leaves the repo's `./cliamp` stale for external
+callers — the installed copy is what `cliamp` on `PATH` resolves to.
 
 - Go version: **1.26** (see `go.mod`; toolchain pinned via `mise.toml`).
 - Linux build needs `libasound2-dev` / `alsa-lib` at build time.

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Broadened Spotify exposure in `packages/clify`: Liked Songs, saved albums
+  (`user-library-read`), and top tracks/artists (`user-top-read`) are now
+  surfaced through `SpotifyClient`, the unified library agent, and `clify
+  library` sections (Liked Songs / Saved Albums / Top Tracks / Top Artists).
 - DJ mode foundation in `cliamp-clify/player`: optional `DJEngine`, dual-deck
   state, ramped faders, equal-power crossfade curves, transition state, BPM
   estimation, and confidence-gated sync.

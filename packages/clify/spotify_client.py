@@ -25,6 +25,7 @@ TOKEN_URL = "https://accounts.spotify.com/api/token"
 HTTP_TIMEOUT_SECONDS = 2.0
 PLAYLIST_CACHE_TTL_SECONDS = 30.0
 GENERATED_ID_PREFIX = "37i9dQZF1E"
+TOP_TIME_RANGES = ("short_term", "medium_term", "long_term")
 GENERATED_PLAYLIST_KINDS = (
     ("daily mix", "daily_mix"),
     ("discover weekly", "discover_weekly"),
@@ -59,6 +60,16 @@ def _generated_kind(name: Any) -> str:
         if substring in lowered:
             return kind
     return "other"
+
+
+def _valid_pagination_limit(value: Any) -> bool:
+    return (not isinstance(value, bool)
+            and isinstance(value, int)
+            and 1 <= value <= 50)
+
+
+def _valid_time_range(value: Any) -> bool:
+    return isinstance(value, str) and value in TOP_TIME_RANGES
 
 
 class SpotifyConfigurationError(ToolError):
@@ -343,10 +354,90 @@ class SpotifyClient:
 
     def get_recently_played(self, limit: int = 50) -> dict[str, Any]:
         """Return the current user's recently played tracks."""
-        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 50:
+        if not _valid_pagination_limit(limit):
             raise SpotifyConfigurationError("recently played limit must be between 1 and 50")
         url = f"{API_BASE_URL}/me/player/recently-played?limit={limit}"
         payload = self._get_json(url)
         if not isinstance(payload.get("items"), list):
             raise SpotifyParseError("Spotify recently-played response lacked an items list")
         return payload
+
+    def _get_paginated_items(self, url: str) -> list[Any]:
+        """Follow ``next`` URLs, flattening page ``items`` into one list.
+
+        Shared by the saved (user-library-read) and top (user-top-read)
+        surfaces, both of which page identically to the playlists endpoint.
+        """
+        items: list[Any] = []
+        while url:
+            page = self._get_json(url)
+            page_items = page.get("items")
+            if not isinstance(page_items, list):
+                raise SpotifyParseError("Spotify paginated response lacked an items list")
+            items.extend(page_items)
+            next_url = page.get("next")
+            if next_url is not None and not isinstance(next_url, str):
+                raise SpotifyParseError("Spotify paginated response had an invalid next URL")
+            url = next_url
+        return items
+
+    def get_saved_tracks(self, limit: int = 50) -> dict[str, Any]:
+        """Return the current user's Liked Songs (saved tracks).
+
+        Requires the ``user-library-read`` authorization scope. Each item
+        carries ``added_at`` plus the nested ``track`` object; Spotify page
+        ``next`` URLs are followed until null.
+        """
+        if not _valid_pagination_limit(limit):
+            raise SpotifyConfigurationError("saved tracks limit must be between 1 and 50")
+        url = f"{API_BASE_URL}/me/tracks?limit={limit}"
+        items = self._get_paginated_items(url)
+        return {"items": items, "total": len(items)}
+
+    def get_saved_albums(self, limit: int = 50) -> dict[str, Any]:
+        """Return the current user's saved albums.
+
+        Requires the ``user-library-read`` authorization scope. Each item
+        carries ``added_at`` plus the nested ``album`` object.
+        """
+        if not _valid_pagination_limit(limit):
+            raise SpotifyConfigurationError("saved albums limit must be between 1 and 50")
+        url = f"{API_BASE_URL}/me/albums?limit={limit}"
+        items = self._get_paginated_items(url)
+        return {"items": items, "total": len(items)}
+
+    def get_top_tracks(self, limit: int = 10,
+                       time_range: str = "medium_term") -> dict[str, Any]:
+        """Return the user's most-played tracks.
+
+        Requires the ``user-top-read`` authorization scope. ``time_range`` is
+        one of ``short_term``, ``medium_term`` (default) or ``long_term``.
+        Items are flat track objects.
+        """
+        if not _valid_pagination_limit(limit):
+            raise SpotifyConfigurationError("top tracks limit must be between 1 and 50")
+        if not _valid_time_range(time_range):
+            raise SpotifyConfigurationError(
+                "time_range must be short_term, medium_term, or long_term"
+            )
+        url = f"{API_BASE_URL}/me/top/tracks?limit={limit}&time_range={time_range}"
+        items = self._get_paginated_items(url)
+        return {"items": items, "total": len(items)}
+
+    def get_top_artists(self, limit: int = 10,
+                        time_range: str = "medium_term") -> dict[str, Any]:
+        """Return the user's most-played artists.
+
+        Requires the ``user-top-read`` authorization scope. ``time_range`` is
+        one of ``short_term``, ``medium_term`` (default) or ``long_term``.
+        Items are flat artist objects.
+        """
+        if not _valid_pagination_limit(limit):
+            raise SpotifyConfigurationError("top artists limit must be between 1 and 50")
+        if not _valid_time_range(time_range):
+            raise SpotifyConfigurationError(
+                "time_range must be short_term, medium_term, or long_term"
+            )
+        url = f"{API_BASE_URL}/me/top/artists?limit={limit}&time_range={time_range}"
+        items = self._get_paginated_items(url)
+        return {"items": items, "total": len(items)}

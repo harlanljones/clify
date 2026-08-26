@@ -170,4 +170,21 @@ Once deployed, agent telemetry is streamed continuously to a central time-series
 | agent_cost_per_task | Accumulator tracking token math | >$0.05 per invocation | Kill runtime engine execution thread |
 | validation_failure_rate | Regex + JSON Schema verification checks | > 2% failure rate | Route tasks back to previous safe software build |
 
+------------------------------
+## 6. Local Build & Install Workflow (automation memory)
+
+The locally-runnable `cliamp` binary lives at `~/.local/bin/cliamp`, **not** in
+the repo build dir. After any change to `cliamp-clify` Go source (or to the
+`clify` Python package the fork extends), always rebuild **and** reinstall so
+the local run reflects HEAD:
+
+```sh
+cd cliamp-clify && make install   # === make build + install -m 755 → ~/.local/bin/cliamp
+cliamp --version                  # confirm the new version string (e.g. "<sha>-dirty")
+```
+
+`make install` (Makefile `install:` target) is the atomic,
+self-contained command — never stop at `make build`, which only produces the
+repo-local `./cliamp`. Run this as the standard final step of every local
+workflow in this repo.
 

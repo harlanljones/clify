@@ -293,3 +293,74 @@ def test_refresh_request_contains_credentials_but_errors_do_not():
         spotify.get_recently_played()
     assert "highly-secret" not in str(caught.value)
     assert caught.value.payload["status"] == "TOOL_ERROR"
+
+
+# --- Saved (Liked Songs / albums) and Top (tracks / artists) surfaces -------
+
+
+def test_saved_tracks_pagination_is_flattened():
+    transport = Transport(
+        Response({"items": [{"track": {"id": "one"}}], "next": "https://api.spotify.com/v1/next"}),
+        Response({"items": [{"track": {"id": "two"}}], "next": None}),
+    )
+    result = client(transport).get_saved_tracks()
+    assert result == {
+        "items": [{"track": {"id": "one"}}, {"track": {"id": "two"}}],
+        "total": 2,
+    }
+    assert transport.calls[0][0].full_url == "https://api.spotify.com/v1/me/tracks?limit=50"
+    assert transport.calls[1][0].full_url == "https://api.spotify.com/v1/next"
+
+
+def test_saved_tracks_limit_is_forwarded_to_url():
+    transport = Transport(Response({"items": [], "next": None}))
+    client(transport).get_saved_tracks(limit=7)
+    assert transport.calls[0][0].full_url.endswith("/me/tracks?limit=7")
+
+
+def test_saved_albums_default_url_and_shape():
+    transport = Transport(Response({"items": [{"album": {"id": "a1"}}], "next": None}))
+    result = client(transport).get_saved_albums()
+    assert result == {"items": [{"album": {"id": "a1"}}], "total": 1}
+    assert transport.calls[0][0].full_url == "https://api.spotify.com/v1/me/albums?limit=50"
+
+
+def test_top_tracks_url_time_range_and_limit():
+    transport = Transport(Response({"items": [{"id": "t1"}], "next": None}))
+    result = client(transport).get_top_tracks(limit=5, time_range="long_term")
+    assert result == {"items": [{"id": "t1"}], "total": 1}
+    assert transport.calls[0][0].full_url == (
+        "https://api.spotify.com/v1/me/top/tracks?limit=5&time_range=long_term"
+    )
+
+
+def test_top_artists_defaults_to_medium_term_limit_10():
+    transport = Transport(Response({"items": [{"id": "a1"}], "next": None}))
+    client(transport).get_top_artists()
+    assert transport.calls[0][0].full_url == (
+        "https://api.spotify.com/v1/me/top/artists?limit=10&time_range=medium_term"
+    )
+
+
+@pytest.mark.parametrize("limit", [0, 51, 5.0, True, None])
+def test_saved_and_top_invalid_limits_never_use_http(limit):
+    transport = Transport()
+    with pytest.raises(SpotifyConfigurationError):
+        client(transport).get_saved_tracks(limit=limit)
+    with pytest.raises(SpotifyConfigurationError):
+        client(transport).get_saved_albums(limit=limit)
+    with pytest.raises(SpotifyConfigurationError):
+        client(transport).get_top_tracks(limit=limit)
+    with pytest.raises(SpotifyConfigurationError):
+        client(transport).get_top_artists(limit=limit)
+    assert transport.calls == []
+
+
+@pytest.mark.parametrize("time_range", ["", "week", "monthly", 7, None])
+def test_top_invalid_time_range_never_uses_http(time_range):
+    transport = Transport()
+    with pytest.raises(SpotifyConfigurationError):
+        client(transport).get_top_tracks(time_range=time_range)
+    with pytest.raises(SpotifyConfigurationError):
+        client(transport).get_top_artists(time_range=time_range)
+    assert transport.calls == []

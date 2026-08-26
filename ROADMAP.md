@@ -540,7 +540,7 @@ of reach and directing users to `clify library`.
 | Risk | Mitigation |
 |---|---|
 | cliamp's Lua plugin API does not support layout injection | Resolved in Phase 5: Phase 9 is a no-go; Phase 8 CLI is the supported presentation surface |
-| Spotify OAuth token storage/security | keep refresh token out of the repo and out of telemetry; document required scopes minimally (`playlist-read-private`, `user-read-recently-played`) |
+| Spotify OAuth token storage/security | keep refresh token out of the repo and out of telemetry; document required scopes (`playlist-read-private`, `user-read-recently-played`, `user-library-read`, `user-top-read`) |
 | Spotify API rate limits under repeated CLI invocations | short-TTL cache in `SpotifyClient` (Phase 6) |
 | "Recently played" has no single source of truth (provider-agnostic cliamp playback history vs. Spotify-wide history) | source-tag when evidence permits, deduplicate overlaps, and keep the merge additive |
 | Scope-similarity gate (see v1.5.0 `agent_manifest.cliamp_playback.json` fix) rejecting real playlist/track names again in the new library manifest | reuse the `similarity_text` template-stripping pattern already added to `ScopeGuard.is_authorized` |

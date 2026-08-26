@@ -8,6 +8,15 @@ from spotify_auth import (
     exchange_code,
     save_credentials,
 )
+
+
+def test_scopes_expose_library_and_top_history():
+    assert SCOPES == (
+        "playlist-read-private",
+        "user-read-recently-played",
+        "user-library-read",
+        "user-top-read",
+    )
 from spotify_client import SpotifyClient
 
 

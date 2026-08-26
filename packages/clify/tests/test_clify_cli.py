@@ -7,9 +7,13 @@ from clify_cli import main
 
 SECTIONS = {
     "recently_played": [{"title": "Newest", "source": "spotify"}],
-    "library": [{"name": "Liked Songs", "source": "spotify"}],
+    "library": [{"name": "Local Library", "source": "spotify"}],
     "your_playlists": ["Local Mix"],
     "made_for_you": [{"id": "g1", "name": "Daily Mix 1", "generated": True}],
+    "saved_tracks": [{"track": {"name": "Liked Track"}}],
+    "saved_albums": [{"album": {"name": "Saved Album"}}],
+    "top_tracks": [{"name": "Replayed Track"}],
+    "top_artists": [{"name": "Top Artist"}],
     "partial": False,
     "failed_sources": [],
 }
@@ -29,8 +33,15 @@ def test_library_text_has_fixed_section_order():
     assert output.index("Recently Played") < output.index("Library")
     assert output.index("Library") < output.index("Your Playlists")
     assert output.index("Your Playlists") < output.index("Made For You")
+    assert output.index("Made For You") < output.index("Liked Songs")
+    assert output.index("Liked Songs") < output.index("Saved Albums")
+    assert output.index("Saved Albums") < output.index("Top Tracks")
+    assert output.index("Top Tracks") < output.index("Top Artists")
     assert "Newest [spotify]" in output
     assert "Daily Mix 1" in output
+    assert "Liked Track" in output
+    assert "Saved Album" in output
+    assert "Top Artist" in output
 
 
 def test_library_json_preserves_insertion_order():
@@ -38,8 +49,9 @@ def test_library_json_preserves_insertion_order():
     client.get_library_sections.return_value = SECTIONS
     code, output, _ = run_cli(["library", "--json"], unified_client=client)
     assert code == 0
-    assert list(json.loads(output))[:4] == [
-        "recently_played", "library", "your_playlists", "made_for_you"
+    assert list(json.loads(output))[:8] == [
+        "recently_played", "library", "your_playlists", "made_for_you",
+        "saved_tracks", "saved_albums", "top_tracks", "top_artists",
     ]
 
 

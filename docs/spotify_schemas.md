@@ -69,10 +69,57 @@ other non-2xx status still becomes a structured `TOOL_ERROR`.
 
 Reference: <https://developer.spotify.com/documentation/web-api/reference/get-playlists-tracks>
 
+## Saved tracks (Liked Songs)
+
+`GET https://api.spotify.com/v1/me/tracks?limit=N`
+
+Required authorization scope: `user-library-read`. The response is a page object
+with an `items` array and nullable `next` URL; each item contains `added_at` plus
+a nested `track` object. clify follows `next` until null and returns a flattened
+`{"items": [...], "total": N}` payload. `N` is limited to 1–50; anything else is
+rejected locally before any HTTP request.
+
+Reference: <https://developer.spotify.com/documentation/web-api/reference/get-users-saved-tracks>
+
+## Saved albums
+
+`GET https://api.spotify.com/v1/me/albums?limit=N`
+
+Required authorization scope: `user-library-read`. Pagination and payload shape
+mirror saved tracks, except each item carries a nested `album` object (and an
+`added_at` timestamp). clify returns a flattened
+`{"items": [...], "total": N}` payload and rejects limits outside 1–50 locally.
+
+Reference: <https://developer.spotify.com/documentation/web-api/reference/get-users-saved-albums>
+
+## Top tracks
+
+`GET https://api.spotify.com/v1/me/top/tracks?limit=N&time_range=R`
+
+Required authorization scope: `user-top-read`. `R` is one of `short_term`,
+`medium_term` (default) or `long_term`; `N` is limited to 1–50. Items are flat
+track objects (no `added_at` wrapper). clify returns a flattened
+`{"items": [...], "total": N}` payload; invalid `limit` or `time_range` values
+are rejected locally before any HTTP request.
+
+Reference: <https://developer.spotify.com/documentation/web-api/reference/get-users-top-artists-and-tracks>
+
+## Top artists
+
+`GET https://api.spotify.com/v1/me/top/artists?limit=N&time_range=R`
+
+Required authorization scope: `user-top-read`. Same pagination and `limit`/
+`time_range` validation as top tracks; items are flat artist objects. clify
+returns a flattened `{"items": [...], "total": N}` payload.
+
+Reference: <https://developer.spotify.com/documentation/web-api/reference/get-users-top-artists-and-tracks>
+
 ## OAuth and errors
 
-Interactive setup uses Authorization Code with PKCE and requests only the two
-scopes above. `clify spotify login` stores the public Client ID and refresh
+Interactive setup uses Authorization Code with PKCE and requests the four
+scopes above (`playlist-read-private`, `user-read-recently-played`,
+`user-library-read`, `user-top-read`). `clify spotify login` stores the public
+Client ID and refresh
 token at `~/.config/clify/spotify.json` with mode 0600; it neither needs nor
 stores a Client Secret. The client uses refresh-token OAuth after login. HTTP
 401 refreshes and retries once; HTTP

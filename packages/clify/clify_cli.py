@@ -10,6 +10,10 @@ SECTION_LABELS = (
     ("library", "Library"),
     ("your_playlists", "Your Playlists"),
     ("made_for_you", "Made For You"),
+    ("saved_tracks", "Liked Songs"),
+    ("saved_albums", "Saved Albums"),
+    ("top_tracks", "Top Tracks"),
+    ("top_artists", "Top Artists"),
 )
 
 
@@ -74,10 +78,13 @@ def _item_label(item):
         return str(item)
     track = item.get("track")
     track_name = track.get("name") if isinstance(track, dict) else None
+    album = item.get("album")
+    album_name = album.get("name") if isinstance(album, dict) else None
     return str(
         item.get("name")
         or item.get("title")
         or track_name
+        or album_name
         or item.get("path")
         or item
     )
