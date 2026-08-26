@@ -47,6 +47,35 @@ const (
 
 const commandModeAny = ^commandMode(0)
 
+// commandSection groups commands in the keymap help screen. Sections are
+// emitted in a fixed order so the categorized help is stable and scannable.
+type commandSection string
+
+const (
+	sectionPlayback   commandSection = "Playback"
+	sectionNavigation commandSection = "Navigation"
+	sectionPlaylist   commandSection = "Playlist & Queue"
+	sectionProviders  commandSection = "Providers & Source"
+	sectionSearch     commandSection = "Search & Filter"
+	sectionVisuals    commandSection = "EQ & Visuals"
+	sectionGeneral    commandSection = "General"
+	// sectionFork marks the clify fork-only commands (the optional DJ engine).
+	sectionFork commandSection = "DJ mode (clify fork)"
+)
+
+// orderedSections is the display order for categorized keymap sections. The
+// fork section is listed last so legacy cliamp bindings stay prominent.
+var orderedSections = []commandSection{
+	sectionPlayback,
+	sectionNavigation,
+	sectionPlaylist,
+	sectionProviders,
+	sectionSearch,
+	sectionVisuals,
+	sectionGeneral,
+	sectionFork,
+}
+
 // commandSpec is the single source of metadata for in-app commands. Dispatch
 // remains in the focused handlers, while keymap, plugin reservations, and help
 // all consume this description.
@@ -55,6 +84,8 @@ type commandSpec struct {
 	Keys        []string // Bubbletea KeyPressMsg.String values.
 	KeyLabel    string   // Human-readable key label.
 	Label       string
+	Section     commandSection // categorized group in the keymap help; "" = context-only
+	Fork        bool           // true = clify fork-only command (DJ engine)
 	Enabled     func(Model) bool
 	Destructive bool
 	Keymap      bool
@@ -72,68 +103,68 @@ func (c commandSpec) enabled(m Model) bool {
 // editor keys that are not shown in the global keymap. Keep key labels in this
 // table so the keymap cannot drift from plugin key reservations.
 var commandRegistry = []commandSpec{
-	{Mode: commandModeMain | commandModeEQ | commandModeSpeed, Keys: []string{"space"}, KeyLabel: "Space", Label: "Play / Pause", Keymap: true, ContextHelp: true, Primary: true},
-	{Mode: commandModeMain, Keys: []string{"s"}, KeyLabel: "s", Label: "Stop", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{">", "."}, KeyLabel: "> .", Label: "Next track", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"<", ","}, KeyLabel: "< ,", Label: "Previous track", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"left", "right"}, KeyLabel: "Left Right", Label: "Seek +/-5s", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"shift+left", "shift+right"}, KeyLabel: "Shift+Left Right", Label: "Seek +/-large step", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "j"}, KeyLabel: "Nj", Label: "Seek to N x 10% of track (e.g. 7j = 70%)", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"+", "=", "-"}, KeyLabel: "+ -", Label: "Volume up/down", Keymap: true},
-	{Mode: commandModeMain | commandModeSpeed, Keys: []string{"]", "["}, KeyLabel: "] [", Label: "Speed up/down (+/-0.25x)", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"z"}, KeyLabel: "z", Label: "Toggle shuffle", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"r"}, KeyLabel: "r", Label: "Cycle repeat", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"m"}, KeyLabel: "m", Label: "Toggle mono", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"e"}, KeyLabel: "e", Label: "Cycle EQ preset", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"t"}, KeyLabel: "t", Label: "Choose theme", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"v"}, KeyLabel: "v", Label: "Cycle visualizer", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"ctrl+v"}, KeyLabel: "Ctrl+V", Label: "Choose visualizer", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"V"}, KeyLabel: "V", Label: "Full-screen visualizer", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"up", "down", "k", "j"}, KeyLabel: "Up Down", Label: "Playlist scroll / EQ adjust (wraps around)", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"pgup", "pgdown", "ctrl+u", "ctrl+d"}, KeyLabel: "PgUp PgDn / Ctrl+U D", Label: "Scroll playlist/browser by page", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"home", "end", "g", "G"}, KeyLabel: "Home End / g G", Label: "Go to top/end of playlist/browser", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"shift+up", "shift+down"}, KeyLabel: "Shift+Up Down", Label: "Move track up/down", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"h", "l"}, KeyLabel: "h l", Label: "EQ cursor left/right", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Play selected track", Keymap: true, ContextHelp: true, Primary: true},
-	{Mode: commandModeMain, Keys: []string{"a"}, KeyLabel: "a", Label: "Toggle queue (play next)", Keymap: true, ContextHelp: true},
-	{Mode: commandModeMain, Keys: []string{"A"}, KeyLabel: "A", Label: "Queue manager", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"x"}, KeyLabel: "x", Label: "Remove selected track from playlist", Destructive: true, Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"w"}, KeyLabel: "w", Label: "Write selected track/selection to playlist", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"o"}, KeyLabel: "o", Label: "Open file browser", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"N"}, KeyLabel: "N", Label: "Provider browser", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"L"}, KeyLabel: "L", Label: "Browse local playlists", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"R"}, KeyLabel: "R", Label: "Open radio provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"S"}, KeyLabel: "S", Label: "Open Spotify provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"P"}, KeyLabel: "P", Label: "Open Plex provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"Y"}, KeyLabel: "Y", Label: "Open YouTube provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"C"}, KeyLabel: "C", Label: "Open SoundCloud provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"M"}, KeyLabel: "M", Label: "Open NetEase provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"J"}, KeyLabel: "J", Label: "Open Jellyfin provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"E"}, KeyLabel: "E", Label: "Open Emby provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"Q"}, KeyLabel: "Q", Label: "Open Qobuz provider", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"ctrl+j"}, KeyLabel: "Ctrl+J", Label: "Jump to time", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"p"}, KeyLabel: "p", Label: "Playlist manager", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"ctrl+h"}, KeyLabel: "Ctrl+H", Label: "Toggle album headers", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"i"}, KeyLabel: "i", Label: "Track info / metadata", Keymap: true, ContextHelp: true},
-	{Mode: commandModeMain, Keys: []string{"ctrl+s"}, KeyLabel: "Ctrl+S", Label: "Save/download track to ~/Music/cliamp", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"ctrl+x"}, KeyLabel: "Ctrl+X", Label: "Expand/collapse view", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"ctrl+x"}, KeyLabel: "Ctrl+X", Label: "Expand", Enabled: func(m Model) bool {
+	{Mode: commandModeMain | commandModeEQ | commandModeSpeed, Keys: []string{"space"}, KeyLabel: "Space", Label: "Play / Pause", Section: sectionPlayback, Keymap: true, ContextHelp: true, Primary: true},
+	{Mode: commandModeMain, Keys: []string{"s"}, KeyLabel: "s", Label: "Stop", Section: sectionPlayback, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{">", "."}, KeyLabel: "> .", Label: "Next track", Section: sectionPlayback, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"<", ","}, KeyLabel: "< ,", Label: "Previous track", Section: sectionPlayback, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"left", "right"}, KeyLabel: "Left Right", Label: "Seek +/-5s", Section: sectionPlayback, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"shift+left", "shift+right"}, KeyLabel: "Shift+Left Right", Label: "Seek +/-large step", Section: sectionPlayback, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "j"}, KeyLabel: "Nj", Label: "Seek to N x 10% of track (e.g. 7j = 70%)", Section: sectionPlayback, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"+", "=", "-"}, KeyLabel: "+ -", Label: "Volume up/down", Section: sectionPlayback, Keymap: true},
+	{Mode: commandModeMain | commandModeSpeed, Keys: []string{"]", "["}, KeyLabel: "] [", Label: "Speed up/down (+/-0.25x)", Section: sectionPlayback, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"z"}, KeyLabel: "z", Label: "Toggle shuffle", Section: sectionPlaylist, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"r"}, KeyLabel: "r", Label: "Cycle repeat", Section: sectionPlaylist, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"m"}, KeyLabel: "m", Label: "Toggle mono", Section: sectionPlayback, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"e"}, KeyLabel: "e", Label: "Cycle EQ preset", Section: sectionVisuals, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"t"}, KeyLabel: "t", Label: "Choose theme", Section: sectionVisuals, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"v"}, KeyLabel: "v", Label: "Cycle visualizer", Section: sectionVisuals, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"ctrl+v"}, KeyLabel: "Ctrl+V", Label: "Choose visualizer", Section: sectionVisuals, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"V"}, KeyLabel: "V", Label: "Full-screen visualizer", Section: sectionVisuals, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"up", "down", "k", "j"}, KeyLabel: "Up Down", Label: "Playlist scroll / EQ adjust (wraps around)", Section: sectionNavigation, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"pgup", "pgdown", "ctrl+u", "ctrl+d"}, KeyLabel: "PgUp PgDn / Ctrl+U D", Label: "Scroll playlist/browser by page", Section: sectionNavigation, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"home", "end", "g", "G"}, KeyLabel: "Home End / g G", Label: "Go to top/end of playlist/browser", Section: sectionNavigation, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"shift+up", "shift+down"}, KeyLabel: "Shift+Up Down", Label: "Move track up/down", Section: sectionNavigation, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"h", "l"}, KeyLabel: "h l", Label: "EQ cursor left/right", Section: sectionVisuals, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"enter"}, KeyLabel: "Enter", Label: "Play selected track", Section: sectionPlaylist, Keymap: true, ContextHelp: true, Primary: true},
+	{Mode: commandModeMain, Keys: []string{"a"}, KeyLabel: "a", Label: "Toggle queue (play next)", Section: sectionPlaylist, Keymap: true, ContextHelp: true},
+	{Mode: commandModeMain, Keys: []string{"A"}, KeyLabel: "A", Label: "Queue manager", Section: sectionPlaylist, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"x"}, KeyLabel: "x", Label: "Remove selected track from playlist", Section: sectionPlaylist, Destructive: true, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"w"}, KeyLabel: "w", Label: "Write selected track/selection to playlist", Section: sectionPlaylist, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"o"}, KeyLabel: "o", Label: "Open file browser", Section: sectionProviders, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"N"}, KeyLabel: "N", Label: "Provider browser", Section: sectionProviders, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"L"}, KeyLabel: "L", Label: "Browse local playlists", Section: sectionProviders, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"R"}, KeyLabel: "R", Label: "Open radio provider", Section: sectionProviders, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"S"}, KeyLabel: "S", Label: "Open Spotify provider", Section: sectionProviders, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"P"}, KeyLabel: "P", Label: "Open Plex provider", Section: sectionProviders, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"Y"}, KeyLabel: "Y", Label: "Open YouTube provider", Section: sectionProviders, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"C"}, KeyLabel: "C", Label: "Open SoundCloud provider", Section: sectionProviders, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"M"}, KeyLabel: "M", Label: "Open NetEase provider", Section: sectionProviders, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"J"}, KeyLabel: "J", Label: "Open Jellyfin provider", Section: sectionProviders, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"E"}, KeyLabel: "E", Label: "Open Emby provider", Section: sectionProviders, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"Q"}, KeyLabel: "Q", Label: "Open Qobuz provider", Section: sectionProviders, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"ctrl+j"}, KeyLabel: "Ctrl+J", Label: "Jump to time", Section: sectionPlayback, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"p"}, KeyLabel: "p", Label: "Playlist manager", Section: sectionPlaylist, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"ctrl+h"}, KeyLabel: "Ctrl+H", Label: "Toggle album headers", Section: sectionNavigation, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"i"}, KeyLabel: "i", Label: "Track info / metadata", Section: sectionPlayback, Keymap: true, ContextHelp: true},
+	{Mode: commandModeMain, Keys: []string{"ctrl+s"}, KeyLabel: "Ctrl+S", Label: "Save/download track to ~/Music/cliamp", Section: sectionPlayback, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"ctrl+x"}, KeyLabel: "Ctrl+X", Label: "Expand/collapse view", Section: sectionNavigation, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"ctrl+x"}, KeyLabel: "Ctrl+X", Label: "Expand", Section: sectionNavigation, Enabled: func(m Model) bool {
 		return !m.heightExpanded && m.layout.bodyRows > m.plVisible
 	}},
-	{Mode: commandModeMain, Keys: []string{"/"}, KeyLabel: "/", Label: "Filter/search list", Keymap: true, ContextHelp: true},
-	{Mode: commandModeMain, Keys: []string{"f"}, KeyLabel: "f", Label: "Toggle bookmark/favorite", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"ctrl+f"}, KeyLabel: "Ctrl+F", Label: "Search active provider or YouTube", Keymap: true, ContextHelp: true},
-	{Mode: commandModeMain, Keys: []string{"u"}, KeyLabel: "u", Label: "Load URL (stream/playlist)", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"d"}, KeyLabel: "d", Label: "Audio device picker", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"D"}, KeyLabel: "D", Label: "DJ mode", Keymap: true, ContextHelp: true},
-	{Mode: commandModeMain, Keys: []string{"y"}, KeyLabel: "y", Label: "Show lyrics", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"tab"}, KeyLabel: "Tab", Label: "Toggle focus", Keymap: true},
-	{Mode: commandModeMain, Keys: []string{"esc", "backspace", "b"}, KeyLabel: "Esc", Label: "Back to provider", Keymap: true, ContextHelp: true, Cancel: true},
-	{Mode: commandModeAny, Keys: []string{"ctrl+k"}, KeyLabel: "Ctrl+K", Label: "Help", Keymap: true, ContextHelp: true, Help: true},
-	{Mode: commandModeMain, Keys: []string{"?"}, KeyLabel: "?", Label: "Help", Keymap: true},
-	{Mode: commandModeAny, Keys: []string{"ctrl+c", "q"}, KeyLabel: "q", Label: "Quit", Keymap: true},
-	{Mode: commandModeAny, Keys: []string{"ctrl+z"}, KeyLabel: "Ctrl+Z", Label: "Undo latest playlist or queue mutation"},
-	{Mode: commandModeProvider, Keys: []string{"ctrl+r"}, KeyLabel: "Ctrl+R", Label: "Refresh provider"},
+	{Mode: commandModeMain, Keys: []string{"/"}, KeyLabel: "/", Label: "Filter/search list", Section: sectionSearch, Keymap: true, ContextHelp: true},
+	{Mode: commandModeMain, Keys: []string{"f"}, KeyLabel: "f", Label: "Toggle bookmark/favorite", Section: sectionPlaylist, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"ctrl+f"}, KeyLabel: "Ctrl+F", Label: "Search active provider or YouTube", Section: sectionSearch, Keymap: true, ContextHelp: true},
+	{Mode: commandModeMain, Keys: []string{"u"}, KeyLabel: "u", Label: "Load URL (stream/playlist)", Section: sectionPlaylist, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"d"}, KeyLabel: "d", Label: "Audio device picker", Section: sectionProviders, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"D"}, KeyLabel: "D", Label: "DJ mode", Section: sectionFork, Fork: true, Keymap: true, ContextHelp: true},
+	{Mode: commandModeMain, Keys: []string{"y"}, KeyLabel: "y", Label: "Show lyrics", Section: sectionPlayback, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"tab"}, KeyLabel: "Tab", Label: "Toggle focus", Section: sectionNavigation, Keymap: true},
+	{Mode: commandModeMain, Keys: []string{"esc", "backspace", "b"}, KeyLabel: "Esc", Label: "Back to provider", Section: sectionNavigation, Keymap: true, ContextHelp: true, Cancel: true},
+	{Mode: commandModeAny, Keys: []string{"ctrl+k"}, KeyLabel: "Ctrl+K", Label: "Help", Section: sectionGeneral, Keymap: true, ContextHelp: true, Help: true},
+	{Mode: commandModeMain, Keys: []string{"?"}, KeyLabel: "?", Label: "Help", Section: sectionGeneral, Keymap: true},
+	{Mode: commandModeAny, Keys: []string{"ctrl+c", "q"}, KeyLabel: "q", Label: "Quit", Section: sectionGeneral, Keymap: true},
+	{Mode: commandModeAny, Keys: []string{"ctrl+z"}, KeyLabel: "Ctrl+Z", Label: "Undo latest playlist or queue mutation", Section: sectionGeneral},
+	{Mode: commandModeProvider, Keys: []string{"ctrl+r"}, KeyLabel: "Ctrl+R", Label: "Refresh provider", Section: sectionProviders},
 
 	// Shared text editing is reserved even though these are intentionally absent
 	// from the global keymap, where they would be misleading outside a field.
@@ -168,12 +199,12 @@ var commandRegistry = []commandSpec{
 	{Mode: commandModeLyrics, Keys: []string{"r"}, KeyLabel: "r", Label: "Retry", ContextHelp: true, Primary: true, Enabled: func(m Model) bool { return !m.lyrics.loading && (m.lyrics.err != nil || len(m.lyrics.lines) == 0) }},
 	{Mode: commandModeLyrics, Keys: []string{"esc"}, KeyLabel: "Esc", Label: "Close", ContextHelp: true, Cancel: true},
 	{Mode: commandModeInfo, Keys: []string{"esc"}, KeyLabel: "Esc", Label: "Close", ContextHelp: true, Cancel: true},
-	{Mode: commandModeDJ, Keys: []string{"esc", "D"}, KeyLabel: "Esc / D", Label: "Exit DJ mode", ContextHelp: true, Cancel: true},
-	{Mode: commandModeDJ, Keys: []string{"1", "2"}, KeyLabel: "1 / 2", Label: "Focus deck A / B", ContextHelp: true},
-	{Mode: commandModeDJ, Keys: []string{"left", "right", "\\"}, KeyLabel: "Left Right \\", Label: "Crossfader", ContextHelp: true},
-	{Mode: commandModeDJ, Keys: []string{"[", "]"}, KeyLabel: "[ ]", Label: "Pitch nudge", ContextHelp: true},
-	{Mode: commandModeDJ, Keys: []string{"s"}, KeyLabel: "s", Label: "Sync focused deck", ContextHelp: true},
-	{Mode: commandModeDJ, Keys: []string{"c"}, KeyLabel: "c", Label: "Center crossfader", ContextHelp: true},
+	{Mode: commandModeDJ, Keys: []string{"esc", "D"}, KeyLabel: "Esc / D", Label: "Exit DJ mode", Section: sectionFork, Fork: true, ContextHelp: true, Cancel: true},
+	{Mode: commandModeDJ, Keys: []string{"1", "2"}, KeyLabel: "1 / 2", Label: "Focus deck A / B", Section: sectionFork, Fork: true, ContextHelp: true},
+	{Mode: commandModeDJ, Keys: []string{"left", "right", "\\"}, KeyLabel: "Left Right \\", Label: "Crossfader", Section: sectionFork, Fork: true, ContextHelp: true},
+	{Mode: commandModeDJ, Keys: []string{"[", "]"}, KeyLabel: "[ ]", Label: "Pitch nudge", Section: sectionFork, Fork: true, ContextHelp: true},
+	{Mode: commandModeDJ, Keys: []string{"s"}, KeyLabel: "s", Label: "Sync focused deck", Section: sectionFork, Fork: true, ContextHelp: true},
+	{Mode: commandModeDJ, Keys: []string{"c"}, KeyLabel: "c", Label: "Center crossfader", Section: sectionFork, Fork: true, ContextHelp: true},
 }
 
 func (m Model) commandHelp(mode commandMode) string {

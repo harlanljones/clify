@@ -70,6 +70,11 @@ var (
 			Background(ui.ColorKeyBG).
 			Bold(true)
 
+	// keymapMatchStyle highlights the runes that matched a keymap filter query.
+	keymapMatchStyle = lipgloss.NewStyle().
+				Foreground(ui.ColorAccent).
+				Bold(true)
+
 	errorStyle = lipgloss.NewStyle().
 			Foreground(ui.ColorError)
 )
@@ -93,6 +98,7 @@ func rebuildModelStyles() {
 	playlistUnavailableStyle = lipgloss.NewStyle().Foreground(ui.ColorDim).Faint(true)
 	helpStyle = lipgloss.NewStyle().Foreground(ui.ColorDim)
 	helpKeyStyle = lipgloss.NewStyle().Foreground(ui.ColorKeyFG).Background(ui.ColorKeyBG).Bold(true)
+	keymapMatchStyle = lipgloss.NewStyle().Foreground(ui.ColorAccent).Bold(true)
 	errorStyle = lipgloss.NewStyle().Foreground(ui.ColorError)
 
 	seekFillStyle = lipgloss.NewStyle().Foreground(ui.ColorSeekBar)

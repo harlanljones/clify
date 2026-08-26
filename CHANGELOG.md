@@ -14,11 +14,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   estimation, and confidence-gated sync.
 - Python `DjAgent`, `agent_manifest.dj.json`, and DJ controller methods for the
   future `dj.*` command surface.
+- Help screen (`?` / `Ctrl+K`) redesign in `cliamp-clify/ui/model`: bindings are
+  now grouped into labeled sections (Playback, Navigation, Playlist & Queue,
+  Providers & Source, Search & Filter, EQ & Visuals, General) with the
+  fork-only DJ engine keys under a dedicated **DJ mode (clify fork)** section.
+  Key pills are column-aligned and `/` filtering is now a fuzzy, highlighted
+  search with a live match count.
 
 ### Documentation
 
 - Added [`docs/dj.md`](docs/dj.md) with implementation status, boundaries, and
   build/test instructions.
+- Updated [`docs/keybindings.md`](docs/keybindings.md) to describe the
+  categorized help screen and the clify-fork section.
 
 ## [1.7.0] - 2026-08-22
 

@@ -141,7 +141,7 @@ func (s topLevelScreen) hidesVisualizer() bool {
 func (s topLevelScreen) label() string {
 	switch s {
 	case screenKeymap:
-		return "Keys"
+		return "Help"
 	case screenThemePicker:
 		return "Themes"
 	case screenVisPicker:

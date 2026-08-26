@@ -15,9 +15,13 @@ When the optional DJ engine is available, press `D` to open the DJ screen.
 | `s` | Sync the focused deck when BPM confidence is sufficient |
 | `Esc` | Close DJ mode |
 
-Press `Ctrl+K` from any mode, or `?` from the player, to see keybindings. The
-keymap starts with actions for the screen you opened it from, followed by player
-and library commands.
+Press `Ctrl+K` from any mode, or `?` from the player, to open the help screen.
+It starts with the actions for the screen you opened it from, then lists every
+binding grouped into labeled sections: Playback, Navigation, Playlist & Queue,
+Providers & Source, Search & Filter, EQ & Visuals, and General. The optional
+DJ engine bindings are grouped under a final **DJ mode (clify fork)** section
+so the fork-only additions stay separate from the stock cliamp keys. Type `/`
+to blur-search the list (matched characters are highlighted).
 
 ## Playback
 

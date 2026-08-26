@@ -5,13 +5,110 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
-// keymapEntry is a row in the Ctrl+K overlay. Rows with `divider = true` are
-// unselectable section headers (e.g. "— plugins —").
+// keymapEntry is a row in the Ctrl+K help overlay. Rows with `divider = true`
+// are unselectable section headers (e.g. "— Playback —" or "— plugins —").
 type keymapEntry struct {
 	key, action string
 	divider     bool
+}
+
+// keymapMatch records which runes of a filtered keymap row matched the query,
+// so the renderer can highlight them. keyIdx applies when the key matched;
+// actionIdx when the action matched.
+type keymapMatch struct {
+	keyIdx, actionIdx []int
+}
+
+// orderedSectionEntries groups the categorized keymap entries into labeled
+// sections. It shares `add` (and its dedup map) with the caller so a command
+// shown in the current-context block does not repeat in the categorized grid.
+func (m Model) orderedSectionEntries(add func(key, action string)) {
+	collect := func(section commandSection) []commandSpec {
+		var entries []commandSpec
+		for _, command := range commandRegistry {
+			if command.Section != section {
+				continue
+			}
+			if !command.Keymap && !command.Fork {
+				continue
+			}
+			if !command.enabled(m) {
+				continue
+			}
+			entries = append(entries, command)
+		}
+		return entries
+	}
+	for _, section := range orderedSections {
+		entries := collect(section)
+		if len(entries) == 0 {
+			continue
+		}
+		add("", "— "+string(section)+" —")
+		for _, command := range entries {
+			add(command.KeyLabel, command.Label)
+		}
+	}
+}
+
+// fuzzyMatchRunes reports whether needle is a subsequence of haystack (both
+// lowercased by the caller) using a rune-aware scan, and returns the rune
+// indices in haystack that matched. It returns ok=false when needle is not a
+// subsequence.
+func fuzzyMatchRunes(haystack, needle []rune) (bool, []int) {
+	if len(needle) == 0 {
+		return true, nil
+	}
+	idxs := make([]int, 0, len(needle))
+	hi := 0
+	for _, r := range needle {
+		adv := false
+		for hi < len(haystack) {
+			if haystack[hi] == r {
+				idxs = append(idxs, hi)
+				hi++
+				adv = true
+				break
+			}
+			hi++
+		}
+		if !adv {
+			return false, nil
+		}
+	}
+	return true, idxs
+}
+
+// highlightMatch wraps the matched rune indices of s in keymapMatchStyle,
+// grouping consecutive matched runes into a single style run.
+func highlightMatch(s string, idxs []int) string {
+	if len(idxs) == 0 {
+		return s
+	}
+	set := make(map[int]bool, len(idxs))
+	for _, i := range idxs {
+		set[i] = true
+	}
+	var b, m strings.Builder
+	flush := func() {
+		if m.Len() > 0 {
+			b.WriteString(keymapMatchStyle.Render(m.String()))
+			m.Reset()
+		}
+	}
+	for i, r := range []rune(s) {
+		if set[i] {
+			m.WriteRune(r)
+		} else {
+			flush()
+			b.WriteRune(r)
+		}
+	}
+	flush()
+	return b.String()
 }
 
 // ReservedKeys returns a fresh copy of every key described by commandRegistry.
@@ -27,19 +124,21 @@ func ReservedKeys() map[string]bool {
 	return out
 }
 
-// buildKeymapEntries starts with commands for the screen that opened Ctrl+K,
-// then lists global player and library commands. The result is cached on open
-// so navigation (which calls keymapCount many times per frame) is allocation-free.
+// buildKeymapEntries starts with commands for the screen that opened the help,
+// then lists every discoverable binding grouped into labeled sections (with the
+// clify fork section last). The result is cached on open so navigation (which
+// calls keymapCount many times per frame) is allocation-free.
 func (m Model) buildKeymapEntries() []keymapEntry {
 	out := make([]keymapEntry, 0, len(commandRegistry)+6)
 	seen := make(map[string]bool)
-	add := func(command commandSpec) {
-		id := command.KeyLabel + "\x00" + command.Label
-		if seen[id] {
+	add := func(key, action string) {
+		id := key + "\x00" + action
+		if id == "" || seen[id] {
 			return
 		}
 		seen[id] = true
-		out = append(out, keymapEntry{key: command.KeyLabel, action: command.Label})
+		divider := key == "" && strings.HasPrefix(action, "— ")
+		out = append(out, keymapEntry{key: key, action: action, divider: divider})
 	}
 
 	mode, label := m.keymapContext()
@@ -47,16 +146,11 @@ func (m Model) buildKeymapEntries() []keymapEntry {
 		out = append(out, keymapEntry{action: "— current: " + label + " —", divider: true})
 		for _, command := range commandRegistry {
 			if command.Mode != commandModeAny && (command.Keymap || command.ContextHelp) && command.enabled(m) && command.Mode&mode != 0 {
-				add(command)
+				add(command.KeyLabel, command.Label)
 			}
 		}
-		out = append(out, keymapEntry{action: "— player & library —", divider: true})
 	}
-	for _, command := range commandRegistry {
-		if command.Keymap && command.enabled(m) {
-			add(command)
-		}
-	}
+	m.orderedSectionEntries(add)
 	if mode != commandModeMain || m.luaMgr == nil {
 		return out
 	}
@@ -70,7 +164,7 @@ func (m Model) buildKeymapEntries() []keymapEntry {
 		if b.Plugin != "" {
 			label += "  (" + b.Plugin + ")"
 		}
-		out = append(out, keymapEntry{key: b.Key, action: label})
+		add(b.Key, label)
 	}
 	return out
 }
@@ -165,7 +259,7 @@ func (m Model) keymapHeaderLine() string {
 	if m.keymap.searching || m.keymap.search != "" {
 		return m.filterCountHeader("keymap", m.keymap.search, fmt.Sprintf("%d/%d", m.keymapCount(), len(m.keymap.entries)))
 	}
-	return sepHeaderN("Keymap", m.keymap.cursor+1, len(m.keymap.entries))
+	return sepHeaderN("Help", m.keymap.cursor+1, len(m.keymap.entries))
 }
 
 func (m *Model) keymapVisible() int {
@@ -336,29 +430,35 @@ func (m *Model) handleKeymapKey(msg tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
-// updateKeymapFilter rebuilds the filtered indices and clamps the cursor.
+// updateKeymapFilter rebuilds the filtered indices (fuzzy subsequence match)
+// and records which runes matched so the renderer can highlight them.
 func (m *Model) updateKeymapFilter() {
 	m.keymap.filtered = nil
+	m.keymap.filterMatch = nil
 	m.keymap.cursor = 0
 	m.keymap.scroll = 0
 	if m.keymap.search == "" {
 		return
 	}
-	query := strings.ToLower(m.keymap.search)
+	needle := []rune(strings.ToLower(m.keymap.search))
 	for i, e := range m.keymap.entries {
 		if e.divider {
 			continue
 		}
-		if strings.Contains(strings.ToLower(e.key), query) ||
-			strings.Contains(strings.ToLower(e.action), query) {
+		okKey, kIdx := fuzzyMatchRunes([]rune(strings.ToLower(e.key)), needle)
+		okAction, aIdx := fuzzyMatchRunes([]rune(strings.ToLower(e.action)), needle)
+		if okKey || okAction {
 			m.keymap.filtered = append(m.keymap.filtered, i)
+			m.keymap.filterMatch = append(m.keymap.filterMatch, keymapMatch{keyIdx: kIdx, actionIdx: aIdx})
 		}
 	}
 }
 
-// renderKeymapList renders the keymap entries for the playlist region while the
-// keymap is open. The header and help line are supplied by the main layout
-// (renderPlaylistHeader / renderHelp), mirroring renderVisPickerList.
+// renderKeymapList renders the help entries for the playlist region while the
+// help overlay is open. The header and help line are supplied by the main
+// layout (renderPlaylistHeader / renderHelp), mirroring renderVisPickerList.
+// Keys are rendered as uniform-width pills so the action column aligns; when a
+// filter is active the matched runes are highlighted.
 func (m Model) renderKeymapList() string {
 	budget := m.effectivePlaylistVisible()
 	if budget <= 0 {
@@ -367,9 +467,12 @@ func (m Model) renderKeymapList() string {
 
 	entries := m.keymap.entries
 	var visible []keymapEntry
+	var matches []keymapMatch
 	if m.keymap.search != "" {
-		for _, i := range m.keymap.filtered {
-			visible = append(visible, entries[i])
+		visible = make([]keymapEntry, 0, len(m.keymap.filtered))
+		for j, idx := range m.keymap.filtered {
+			visible = append(visible, entries[idx])
+			matches = append(matches, m.keymap.filterMatch[j])
 		}
 	} else {
 		visible = entries
@@ -383,6 +486,16 @@ func (m Model) renderKeymapList() string {
 		return strings.Join(fitLines([]string{dimStyle.Render("  " + msg)}, budget), "\n")
 	}
 
+	maxKeyW := 0
+	for _, e := range visible {
+		if e.divider {
+			continue
+		}
+		if w := lipgloss.Width(e.key); w > maxKeyW {
+			maxKeyW = w
+		}
+	}
+
 	lines := make([]string, 0, budget)
 	for i := m.keymap.scroll; i < len(visible) && len(lines) < budget; i++ {
 		entry := visible[i]
@@ -390,7 +503,14 @@ func (m Model) renderKeymapList() string {
 			lines = append(lines, dimStyle.Render("  "+entry.action))
 			continue
 		}
-		line := fmt.Sprintf("%-10s %s", entry.key, entry.action)
+		keyText := fmt.Sprintf("%-*s", maxKeyW, entry.key)
+		action := entry.action
+		if m.keymap.search != "" && i < len(matches) {
+			keyText = highlightMatch(keyText, matches[i].keyIdx)
+			action = highlightMatch(action, matches[i].actionIdx)
+		}
+		keyPill := helpKeyStyle.Render(" " + keyText + " ")
+		line := keyPill + " " + action
 		if m.keymap.searching {
 			lines = append(lines, dimStyle.Render("  "+line))
 		} else {

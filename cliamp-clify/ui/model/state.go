@@ -125,6 +125,7 @@ type keymapOverlay struct {
 	searching   bool
 	search      string
 	filtered    []int         // indices into entries
+	filterMatch []keymapMatch // parallel to filtered; highlights the query match
 	entries     []keymapEntry // core keys + plugin keys, rebuilt on openKeymap
 }
 
