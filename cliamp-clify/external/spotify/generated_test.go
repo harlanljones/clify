@@ -118,6 +118,7 @@ func TestPlaylistsBuildsMadeForYouSectionInOrder(t *testing.T) {
 	add := func(id, name, section string) {
 		want = append(want, struct{ id, name, section string }{id, name, section})
 	}
+	add("TOP TRACKS", "Top Tracks", "Made For You")
 	add("37i9dQZF1E8XDailyMix", "Daily Mix 1", "Made For You")
 	add("37i9dQZF1ExUserOwned", "Discover Weekly", "Made For You")
 	add("YOUR MUSIC", "Your Music", "Library")

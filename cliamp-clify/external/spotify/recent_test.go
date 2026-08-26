@@ -178,6 +178,7 @@ func TestPlaylistsDerivesAlbumAndPlaylistRowsFromSpotifyFeed(t *testing.T) {
 		{"p1", "Named p1", "Recently Played"},
 		{"__clify_album__beta", "Beta", "Recently Played"},
 		{"__clify_album__delta", "Delta", "Recently Played"},
+		{"TOP TRACKS", "Top Tracks", "Made For You"},
 		{"YOUR MUSIC", "Your Music", "Library"},
 		{"mine", "Mine", "Your playlists"},
 	}
@@ -354,7 +355,7 @@ func TestPlaylistsSkipsRowsWhenOnlyLocalHistoryExists(t *testing.T) {
 			t.Fatalf("local history leaked into rows: %+v", got)
 		}
 	}
-	if len(got) != 2 {
+	if len(got) != 3 {
 		t.Fatalf("playlists = %+v", got)
 	}
 

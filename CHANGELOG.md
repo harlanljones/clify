@@ -9,10 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Spotified **saved albums** browse in the cliamp-clify TUI: the Spotify
+  provider now implements `provider.AlbumBrowser` / `provider.AlbumTrackLoader`
+  (`external/spotify/albums.go`), so saved albums appear in the album browser
+  with `Recently Added` / `By Name` / `By Artist` sorts (`user-library-read`).
+- Added **Top Tracks** and **Top Artists** to the Spotify provider
+  (`external/spotify/artists.go`, `user-top-read`): a `Top Tracks` library row
+  resolves `/v1/me/top/tracks`, and `provider.ArtistBrowser` surfaces top
+  artists in the **By Artist** browse (artist → albums → tracks).
+- Wired the optional **DJ mode** surface into the TUI: `run()` attaches a
+  `player.NewDJController()` via `m.SetDJEngine(...)`, so `D` opens the
+  dual-deck control surface (deck/crossfader/pitch/BPM state; live speaker-graph
+  mixing remains a later phase).
 - Broadened Spotify exposure in `packages/clify`: Liked Songs, saved albums
   (`user-library-read`), and top tracks/artists (`user-top-read`) are now
-  surfaced through `SpotifyClient`, the unified library agent, and `clify
-  library` sections (Liked Songs / Saved Albums / Top Tracks / Top Artists).
+  surfaced through `SpotifyClient`, the unified library agent, and `clify`
+  library sections (Liked Songs / Saved Albums / Top Tracks / Top Artists).
 - DJ mode foundation in `cliamp-clify/player`: optional `DJEngine`, dual-deck
   state, ramped faders, equal-power crossfade curves, transition state, BPM
   estimation, and confidence-gated sync.

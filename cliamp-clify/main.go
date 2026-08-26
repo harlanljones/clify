@@ -315,6 +315,11 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 
 	m := model.New(p, pl, providers, defaultProvider, localProv, themes, luaMgr, config.SaveFunc{})
 	m.SetVisVolumeLinked(cfg.VisVolumeLinked)
+	// Attach the optional dual-deck DJ surface so the "D" key opens the deck
+	// view. The DJController is a pipeline-independent control surface (deck
+	// state, crossfader, pitch, BPM); live speaker-graph mixing is a later
+	// phase (see docs/DJ_MODE_PLAN.md).
+	m.SetDJEngine(player.NewDJController())
 
 	if luaMgr != nil {
 		luaMgr.SetStateProvider(luaplugin.StateProvider{

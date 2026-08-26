@@ -65,6 +65,15 @@ type SpotifyProvider struct {
 	listCache   []playlist.PlaylistInfo
 	listCacheAt time.Time
 
+	// Saved-albums cache (see albums.go). Kept distinct so the playlist list
+	// and the album browse refresh independently.
+	albumCache   []savedAlbumEntry
+	albumCacheAt time.Time
+
+	// Top-artists cache (see artists.go) for the "By Artist" browse.
+	artistCache   []provider.ArtistInfo
+	artistCacheAt time.Time
+
 	// Session cache of playlist display names for Recently Played rows, plus
 	// ids whose /v1/playlists/{id} lookups 404'd (Spotify-generated mixes,
 	// unaddressable via the Web API). Unbrowsable ids remain visible rows and
@@ -207,6 +216,10 @@ func (p *SpotifyProvider) Close() {
 func (p *SpotifyProvider) resetSessionScopedStateLocked() {
 	p.userID = ""
 	p.meFetched = false
+	p.albumCache = nil
+	p.albumCacheAt = time.Time{}
+	p.artistCache = nil
+	p.artistCacheAt = time.Time{}
 }
 
 func (p *SpotifyProvider) Name() string { return "Spotify" }
@@ -289,6 +302,12 @@ func (p *SpotifyProvider) Playlists() ([]playlist.PlaylistInfo, error) {
 		Name:       "Your Music",
 		TrackCount: result.Total,
 		Section:    "Library",
+	})
+	// Row for the user's most-played tracks (personalized listening stats).
+	all = append(all, playlist.PlaylistInfo{
+		ID:      topTracksID,
+		Name:    "Top Tracks",
+		Section: madeForYouSection,
 	})
 
 	for {
@@ -416,6 +435,12 @@ func (p *SpotifyProvider) Tracks(playlistID string) ([]playlist.Track, error) {
 	// spclient context-resolve instead.
 	if p.isGeneratedPlaylist(playlistID) {
 		return p.resolveGeneratedTracks(playlistID)
+	}
+
+	if playlistID == topTracksID {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		return p.topTracks(ctx)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -662,6 +687,10 @@ func (p *SpotifyProvider) Refresh() {
 	p.mu.Lock()
 	p.listCache = nil
 	p.listCacheAt = time.Time{}
+	p.albumCache = nil
+	p.albumCacheAt = time.Time{}
+	p.artistCache = nil
+	p.artistCacheAt = time.Time{}
 	p.recentCache = recent.Result{}
 	p.recentCacheAt = time.Time{}
 	p.mu.Unlock()

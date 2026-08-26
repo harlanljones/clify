@@ -55,6 +55,7 @@ func TestPlaylistsIncludesFollowedPlaylists(t *testing.T) {
 		id      string
 		section string
 	}{
+		{id: "TOP TRACKS", section: "Made For You"},
 		{id: "YOUR MUSIC", section: "Library"},
 		{id: "owned", section: "Your playlists"},
 		{id: "followed", section: "Followed playlists"},

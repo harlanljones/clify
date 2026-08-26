@@ -69,6 +69,13 @@ Your Spotify playlists are listed in the provider panel under `── Library �
 
 Above them, `── Recently Played ──` lists up to 25 albums and playlists derived from Spotify's listening history, newest first. Enter opens an album's track list or the playlist itself. Rows derive from Spotify only; cliamp's local history keeps feeding `cliamp history unified --json` unchanged.
 
+Your **saved albums** are available through the album browser (`b`/browse and sort). Press `b` while Spotify is the active provider, choose **Albums**, and pick a sort — `Recently Added` (default), `By Name`, or `By Artist`. Enter opens the album's track list. Albums you've *saved* in Spotify appear here only if you've liked/followed them in the app.
+
+Two extra personalized rows appear in the library list (under `── Made For You ──`):
+
+- **Top Tracks** — your most-played tracks (`/v1/me/top/tracks`, last ~6 months). Enter loads it like any other playlist.
+- **Top Artists** — your most-played artists, browsed via **By Artist** in the album/artist browser (`b`). Selecting an artist shows their albums, then opens their tracks.
+
 ## Controls
 
 When focused on the provider panel:
