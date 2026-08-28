@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Omarchy theme sync** for cliamp-clify: when `theme` is unset, cliamp loads
+  `~/.config/omarchy/current/theme/colors.toml`, registers a live `omarchy`
+  theme in the picker, and hot-reloads UI + spectrum visualizer colors when the
+  desktop theme changes (~2s poll).
 - Spotified **saved albums** browse in the cliamp-clify TUI: the Spotify
   provider now implements `provider.AlbumBrowser` / `provider.AlbumTrackLoader`
   (`external/spotify/albums.go`), so saved albums appear in the album browser
@@ -37,10 +41,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Key pills are column-aligned and `/` filtering is now a fuzzy, highlighted
   search with a live match count.
 
+### Fixed
+
+- **Spotify Top Artists browse** showed `(0 albums)` for every artist because
+  `/v1/me/top/artists` omits album counts. cliamp now enriches each artist via
+  `/v1/artists/{id}/albums` (concurrent, cached).
+
 ### Documentation
 
 - Added [`docs/dj.md`](docs/dj.md) with implementation status, boundaries, and
   build/test instructions.
+- Updated [`cliamp-clify/docs/themes.md`](cliamp-clify/docs/themes.md),
+  [`cliamp-clify/docs/configuration.md`](cliamp-clify/docs/configuration.md),
+  and [`cliamp-clify/docs/spotify.md`](cliamp-clify/docs/spotify.md) for
+  Omarchy live sync and Spotify artist album counts.
 - Updated [`docs/keybindings.md`](docs/keybindings.md) to describe the
   categorized help screen and the clify-fork section.
 

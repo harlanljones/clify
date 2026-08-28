@@ -7,7 +7,7 @@
 
 The `clify` monorepo unites two complementary terminal music products:
 
-1. **[`cliamp-clify`](cliamp-clify/)** — A feature-rich fork of [cliamp](https://github.com/bjarneo/cliamp) (retro Winamp-inspired terminal music player in Go) with native **Spotify superpowers**: Made For You mix resolution, Spotify-derived Recently Played albums & playlists, Followed playlists viewport/filter fixes, headless `spotify login`, and default Spotify launch.
+1. **[`cliamp-clify`](cliamp-clify/)** — A feature-rich fork of [cliamp](https://github.com/bjarneo/cliamp) (retro Winamp-inspired terminal music player in Go) with native **Spotify superpowers**: Made For You mix resolution, Spotify-derived Recently Played albums & playlists, Top Artists with correct album counts, Followed playlists viewport/filter fixes, headless `spotify login`, default Spotify launch, and **Omarchy live theme sync** for visualizers.
 2. **[`clify` CLI & ADD Framework](packages/clify/)** — A complementary Python CLI tool and reference implementation of the Metric-Driven Agent-Driven Development ([AGENTS.md](AGENTS.md)) specification, extending `cliamp-clify` with cross-provider library unification, natural-language playback agents, PKCE OAuth, and deterministic SLA guardrails.
 
 DJ mode foundation is now shared across both products: Go dual-deck/fader/BPM
@@ -59,6 +59,8 @@ graph TD
 - **Default Spotify Provider:** Opens straight to the Spotify browser on launch with clean queue state.
 - **Followed Playlists Viewport Fixes:** Header-aware scroll calculation keeps bottom rows visible; `/` filter mode preserves section headers and result count.
 - **Headless `spotify login`:** Built-in PKCE login command authorizing the player without starting audio playback.
+- **Omarchy theme sync:** When no theme is configured, UI and spectrum visualizer colors follow `~/.config/omarchy/current/theme/colors.toml` and hot-reload on desktop theme changes.
+- **Spotify Top Artists:** Artist browse rows show real album counts (enriched from Spotify's albums API).
 - **Versioned IPC Contract:** Exposes `cliamp.history.unified/1` over Unix socket for companion tools.
 - **DJ mode:** Press `D` for the dual-deck control screen. It exposes deck
   focus, crossfader, pitch nudge, and confidence-gated sync. Live speaker-graph

@@ -74,7 +74,7 @@ Your **saved albums** are available through the album browser (`b`/browse and so
 Two extra personalized rows appear in the library list (under `── Made For You ──`):
 
 - **Top Tracks** — your most-played tracks (`/v1/me/top/tracks`, last ~6 months). Enter loads it like any other playlist.
-- **Top Artists** — your most-played artists, browsed via **By Artist** in the album/artist browser (`b`). Selecting an artist shows their albums, then opens their tracks.
+- **Top Artists** — your most-played artists, browsed via **By Artist** in the album/artist browser (`b`). Each artist row shows their album count (fetched from Spotify's albums endpoint). Select an artist to browse their albums, then open their tracks.
 
 ## Controls
 

@@ -56,6 +56,25 @@ in monochrome terminals.
 
 If your custom file has the same name as a built-in theme, yours takes priority. For example, creating `~/.config/cliamp/themes/catppuccin.toml` replaces the built-in catppuccin.
 
+## Omarchy desktop theme (live sync)
+
+On [Omarchy](https://github.com/omarchy/omarchy) systems, cliamp can follow your
+active desktop palette automatically.
+
+When `theme` is empty or omitted in `~/.config/cliamp/config.toml`, cliamp reads
+`~/.config/omarchy/current/theme/colors.toml` on launch and maps Omarchy keys
+onto cliamp's six-color palette (`accent`, `bright_fg`, `fg`, `green`, `yellow`,
+`red`). Modern Omarchy keys (`green`, `yellow`, `red`) and legacy slots
+(`color2`, `color3`, `color1`) are both supported.
+
+While Omarchy sync is active, cliamp polls that file every ~2 seconds. When you
+run `omarchy theme set <name>`, UI accents and **all spectrum visualizers** pick
+up the new colors without restarting cliamp.
+
+The live palette also appears in the theme picker (`t`) as **omarchy**. Selecting
+it enables the same hot-reload behaviour. Choosing **default** or any other
+built-in/custom theme disables Omarchy sync for that session.
+
 ## Setting a default theme
 
 Add a `theme` line to `~/.config/cliamp/config.toml`:
@@ -64,4 +83,11 @@ Add a `theme` line to `~/.config/cliamp/config.toml`:
 theme = "catppuccin"
 ```
 
-Use the filename without `.toml`. Leave empty or omit for terminal default colors.
+Use the filename without `.toml`. Leave empty or omit to use terminal default
+colors, or — on Omarchy — to auto-sync with your desktop theme (see above).
+
+To pin Omarchy explicitly:
+
+```toml
+theme = "omarchy"
+```
