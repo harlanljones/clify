@@ -11,10 +11,11 @@ Omarchy desktop themes, and fixes Spotify Top Artists album counts in browse.
 ## What changed in clify.2 (continued)
 
 - **Omarchy live theme sync.** When `theme` is unset in config, cliamp reads
-  `~/.config/omarchy/current/theme/colors.toml`, maps Omarchy palette keys onto
-  cliamp's six-color theme, and hot-reloads UI + spectrum visualizer colors when
-  the desktop theme file changes (~2s poll). The live palette appears in the
-  theme picker as `omarchy`. See [docs/themes.md](docs/themes.md).
+  `~/.local/state/omarchy/current/theme/colors.toml` (legacy
+  `~/.config/omarchy/current/theme/colors.toml` fallback), maps Omarchy palette
+  keys onto cliamp's six-color theme, and hot-reloads UI + spectrum visualizer
+  colors when the desktop theme file changes (~2s poll). The live palette
+  appears in the theme picker as `omarchy`. See [docs/themes.md](docs/themes.md).
 - **Spotify Top Artists album counts.** `/v1/me/top/artists` omits album totals;
   browse now enriches each artist via `/v1/artists/{id}/albums` (concurrent,
   cached) so **By Artist** rows show real counts instead of `(0 albums)`.

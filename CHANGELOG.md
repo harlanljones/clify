@@ -10,9 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Omarchy theme sync** for cliamp-clify: when `theme` is unset, cliamp loads
-  `~/.config/omarchy/current/theme/colors.toml`, registers a live `omarchy`
-  theme in the picker, and hot-reloads UI + spectrum visualizer colors when the
-  desktop theme changes (~2s poll).
+  the live Omarchy palette (`~/.local/state/omarchy/current/theme/colors.toml`,
+  with a `~/.config` fallback), registers a live `omarchy` theme in the picker,
+  and hot-reloads UI + spectrum visualizer colors when the desktop theme changes
+  (~2s poll).
 - Spotified **saved albums** browse in the cliamp-clify TUI: the Spotify
   provider now implements `provider.AlbumBrowser` / `provider.AlbumTrackLoader`
   (`external/spotify/albums.go`), so saved albums appear in the album browser
@@ -46,6 +47,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Spotify Top Artists browse** showed `(0 albums)` for every artist because
   `/v1/me/top/artists` omits album counts. cliamp now enriches each artist via
   `/v1/artists/{id}/albums` (concurrent, cached).
+- **Omarchy visualizer colors** never applied: live palette lives at
+  `~/.local/state/omarchy/current/theme/colors.toml` (not
+  `~/.config/omarchy/current/theme/colors.toml`). Spectrum now reads the
+  staged path, with a legacy fallback.
 
 ### Documentation
 

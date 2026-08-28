@@ -13,15 +13,27 @@ import (
 const OmarchyName = "omarchy"
 
 // ColorsPath returns the active Omarchy theme colors file, or "" when HOME is unset.
+// Current Omarchy stages the live palette at
+// ~/.local/state/omarchy/current/theme/colors.toml; older installs used
+// ~/.config/omarchy/current/theme/colors.toml. The first existing path wins.
 func ColorsPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil || home == "" {
 		return ""
 	}
-	return filepath.Join(home, ".config", "omarchy", "current", "theme", "colors.toml")
+	candidates := []string{
+		filepath.Join(home, ".local", "state", "omarchy", "current", "theme", "colors.toml"),
+		filepath.Join(home, ".config", "omarchy", "current", "theme", "colors.toml"),
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return candidates[0]
 }
 
-// LoadOmarchy reads ~/.config/omarchy/current/theme/colors.toml and maps it to
+// LoadOmarchy reads the live Omarchy colors.toml and maps it to
 // the cliamp six-color palette. Returns false when the file is missing or does
 // not contain a complete palette.
 func LoadOmarchy() (Theme, bool) {

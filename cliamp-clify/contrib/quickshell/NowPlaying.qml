@@ -7,7 +7,7 @@
 //   row 4: thin seekable progress line
 //
 // Driven by an MprisPlayer for transport + position. Theme colors come from
-// the active Omarchy theme at ~/.config/omarchy/current/theme/colors.toml,
+// the active Omarchy theme at ~/.local/state/omarchy/current/theme/colors.toml,
 // watched for changes so theme swaps update the widget live.
 
 import Quickshell
@@ -30,7 +30,7 @@ Item {
 
     FileView {
         id: themeFile
-        path: (Quickshell.env("HOME") || "") + "/.config/omarchy/current/theme/colors.toml"
+        path: (Quickshell.env("HOME") || "") + "/.local/state/omarchy/current/theme/colors.toml"
         watchChanges: true
         // Omarchy's theme swap does `rm -rf current/theme && mv next-theme current/theme`,
         // so there's a brief window where the file genuinely doesn't exist. Quiet the

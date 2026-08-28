@@ -1,6 +1,6 @@
 # cliamp quickshell widget
 
-A compact "now playing" card for [Quickshell](https://quickshell.org) (300 x 72), centered along the bottom of every screen and driven by cliamp's MPRIS service (`org.mpris.MediaPlayer2.cliamp`). Two-row layout: title + time on top, artist + transport on the second row, a 10-band Winamp 2-style spectrum below, and a thin click-to-seek line at the bottom. Colors are picked up from the active Omarchy theme (`~/.config/omarchy/current/theme/colors.toml`) and update live when the theme changes. Hides itself when cliamp is not running. The card accepts mouse input for playback controls and seeking, but never takes keyboard focus from the active application.
+A compact "now playing" card for [Quickshell](https://quickshell.org) (300 x 72), centered along the bottom of every screen and driven by cliamp's MPRIS service (`org.mpris.MediaPlayer2.cliamp`). Two-row layout: title + time on top, artist + transport on the second row, a 10-band Winamp 2-style spectrum below, and a thin click-to-seek line at the bottom. Colors are picked up from the active Omarchy theme (`~/.local/state/omarchy/current/theme/colors.toml`) and update live when the theme changes. Hides itself when cliamp is not running. The card accepts mouse input for playback controls and seeking, but never takes keyboard focus from the active application.
 
 Linux only. Requires Quickshell 0.2+ and cliamp running with its default MPRIS service enabled (it is by default on Linux).
 
@@ -27,7 +27,7 @@ Then start cliamp in another terminal. The card appears on every screen, anchore
 Theme colors come from Omarchy's active theme file:
 
 ```
-~/.config/omarchy/current/theme/colors.toml
+~/.local/state/omarchy/current/theme/colors.toml
 ```
 
 Mapping into the widget:
@@ -80,7 +80,7 @@ Swap `bottom` for `top` to flip to the top edge, or replace the `horizontalCente
 - The widget polls `MprisPlayer.position` on a 250 ms timer while playing, since Quickshell's MPRIS service does not emit reactive updates for position drift.
 - Player detection uses `dbusName === "cliamp"` (cliamp registers the well-known name `org.mpris.MediaPlayer2.cliamp` in `mediactl/service_linux.go`).
 - Clicking the progress bar issues an MPRIS `SetPosition`, which cliamp handles via `playback.SetPositionMsg`.
-- Theme colors come from the active Omarchy theme via a `FileView` watching `~/.config/omarchy/current/theme/colors.toml`. The TOML is parsed in QML with a small regex (no external script). Theme swaps update the card without reloading Quickshell.
+- Theme colors come from the active Omarchy theme via a `FileView` watching `~/.local/state/omarchy/current/theme/colors.toml`. The TOML is parsed in QML with a small regex (no external script). Theme swaps update the card without reloading Quickshell.
 - Spectrum bands stream over the cliamp IPC socket via `cliamp visstream`. One long-lived subprocess per widget.
 - The widget renders a Winamp 2-style spectrum analyzer: each band is a stack of LED segments with a tiny gap between them, with a falling peak cap. Three-tone gradient across the height — `color2` (green) for the bottom rows, `color3` (yellow) for the middle, `color1` (red) for the top, mirroring the classic Winamp gradient (and the cliamp TUI). The bar block spans the full card width, edge to edge.
 - All UI elements use sharp 90-degree corners (no `radius`) to match a terminal aesthetic.

@@ -4,7 +4,7 @@ A notification-sized "now playing" card for [Quickshell](https://quickshell.org)
 
 It pulls live spectrum data from a running cliamp over the IPC socket, draws a Winamp 2-style segmented analyzer, and reads colors directly from the active Omarchy theme so it restyles in lock-step when you swap themes.
 
-> This widget is built for an Omarchy setup. It uses Omarchy's `~/.config/omarchy/current/theme/colors.toml` as the source of truth for its palette. On a non-Omarchy system the panel still works but falls back to the default kanagawa-dragon-ish colors baked into `NowPlaying.qml`.
+> This widget is built for an Omarchy setup. It uses Omarchy's `~/.local/state/omarchy/current/theme/colors.toml` as the source of truth for its palette. On a non-Omarchy system the panel still works but falls back to the default kanagawa-dragon-ish colors baked into `NowPlaying.qml`.
 
 ## What you get
 

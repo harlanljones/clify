@@ -59,7 +59,7 @@ graph TD
 - **Default Spotify Provider:** Opens straight to the Spotify browser on launch with clean queue state.
 - **Followed Playlists Viewport Fixes:** Header-aware scroll calculation keeps bottom rows visible; `/` filter mode preserves section headers and result count.
 - **Headless `spotify login`:** Built-in PKCE login command authorizing the player without starting audio playback.
-- **Omarchy theme sync:** When no theme is configured, UI and spectrum visualizer colors follow `~/.config/omarchy/current/theme/colors.toml` and hot-reload on desktop theme changes.
+- **Omarchy theme sync:** When no theme is configured, UI and spectrum visualizer colors follow `~/.local/state/omarchy/current/theme/colors.toml` and hot-reload on desktop theme changes.
 - **Spotify Top Artists:** Artist browse rows show real album counts (enriched from Spotify's albums API).
 - **Versioned IPC Contract:** Exposes `cliamp.history.unified/1` over Unix socket for companion tools.
 - **DJ mode:** Press `D` for the dual-deck control screen. It exposes deck

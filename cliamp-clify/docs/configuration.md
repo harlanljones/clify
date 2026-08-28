@@ -82,7 +82,7 @@ compact = false
 
 # UI theme name (see available themes in ~/.config/cliamp/themes/)
 # Leave empty for terminal defaults. On Omarchy, an empty value auto-syncs
-# cliamp and visualizer colors from ~/.config/omarchy/current/theme/colors.toml.
+# cliamp and visualizer colors from ~/.local/state/omarchy/current/theme/colors.toml.
 theme = "Tokyo Night"
 
 # Log level: "debug", "info", "warn", or "error" (default "info")

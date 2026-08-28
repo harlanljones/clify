@@ -20,8 +20,8 @@ func applyThemeAll(t theme.Theme) {
 	rebuildModelStyles()
 }
 
-// EnableOmarchySync applies the active Omarchy palette and watches
-// ~/.config/omarchy/current/theme/colors.toml for live theme swaps.
+// EnableOmarchySync applies the active Omarchy palette and watches the live
+// Omarchy colors.toml (state path, with legacy ~/.config fallback) for swaps.
 func (m *Model) EnableOmarchySync(t theme.Theme) {
 	applyThemeAll(t)
 	m.omarchySync = true

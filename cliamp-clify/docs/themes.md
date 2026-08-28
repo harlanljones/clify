@@ -62,10 +62,11 @@ On [Omarchy](https://github.com/omarchy/omarchy) systems, cliamp can follow your
 active desktop palette automatically.
 
 When `theme` is empty or omitted in `~/.config/cliamp/config.toml`, cliamp reads
-`~/.config/omarchy/current/theme/colors.toml` on launch and maps Omarchy keys
-onto cliamp's six-color palette (`accent`, `bright_fg`, `fg`, `green`, `yellow`,
-`red`). Modern Omarchy keys (`green`, `yellow`, `red`) and legacy slots
-(`color2`, `color3`, `color1`) are both supported.
+the live Omarchy palette (`~/.local/state/omarchy/current/theme/colors.toml`,
+falling back to `~/.config/omarchy/current/theme/colors.toml`) on launch and maps
+Omarchy keys onto cliamp's six-color palette (`accent`, `bright_fg`, `fg`,
+`green`, `yellow`, `red`). Modern Omarchy keys (`green`, `yellow`, `red`) and
+legacy slots (`color2`, `color3`, `color1`) are both supported.
 
 While Omarchy sync is active, cliamp polls that file every ~2 seconds. When you
 run `omarchy theme set <name>`, UI accents and **all spectrum visualizers** pick
