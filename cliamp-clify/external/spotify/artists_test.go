@@ -27,7 +27,10 @@ func newArtistFixture(t *testing.T) *artistFixture {
 		t:            t,
 		topArtists:   `{"items":[{"id":"a1","name":"Daft Punk"},{"id":"a2","name":"Aphex Twin"}],"total":2}`,
 		topTracks:    `{"items":[{"id":"t1","name":"One More Time","type":"track","uri":"spotify:track:t1","artists":[{"name":"Daft Punk"}],"album":{"id":"alb1","name":"Discovery","release_date":"2001-03-12"},"duration_ms":320000}],"total":1}`,
-		artistAlbums: map[string]string{},
+		artistAlbums: map[string]string{
+			"a1": `{"items":[],"total":3}`,
+			"a2": `{"items":[],"total":7}`,
+		},
 	}
 	f.p = New(&Session{}, "client", 160)
 	f.p.webAPIFunc = func(_ context.Context, _ string, path string, urlValues url.Values) (*http.Response, error) {
@@ -69,10 +72,10 @@ func TestArtistsReturnsTopArtists(t *testing.T) {
 	if len(artists) != 2 {
 		t.Fatalf("artists = %d, want 2", len(artists))
 	}
-	if artists[0].ID != "a1" || artists[0].Name != "Daft Punk" {
+	if artists[0].ID != "a1" || artists[0].Name != "Daft Punk" || artists[0].AlbumCount != 3 {
 		t.Errorf("artists[0] = %+v", artists[0])
 	}
-	if artists[1].ID != "a2" || artists[1].Name != "Aphex Twin" {
+	if artists[1].ID != "a2" || artists[1].Name != "Aphex Twin" || artists[1].AlbumCount != 7 {
 		t.Errorf("artists[1] = %+v", artists[1])
 	}
 }
@@ -116,6 +119,30 @@ func TestArtistsTopArtistsQuery(t *testing.T) {
 	}
 	if !requested {
 		t.Fatal("top-artists endpoint was never requested")
+	}
+}
+
+func TestArtistsEnrichAlbumCountsUsesAlbumTotal(t *testing.T) {
+	p := New(&Session{}, "client", 160)
+	p.webAPIFunc = func(_ context.Context, _, path string, query url.Values) (*http.Response, error) {
+		switch {
+		case path == "/v1/me/top/artists":
+			return jsonResponse(200, `{"items":[{"id":"a1","name":"Daft Punk"}],"total":1}`), nil
+		case path == "/v1/artists/a1/albums":
+			if query.Get("limit") != "1" || query.Get("include_groups") != "album" {
+				t.Fatalf("album count query = %v", query)
+			}
+			return jsonResponse(200, `{"items":[],"total":12}`), nil
+		}
+		t.Fatalf("unexpected path %q", path)
+		return nil, fmt.Errorf("unexpected path %q", path)
+	}
+	artists, err := p.Artists()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(artists) != 1 || artists[0].AlbumCount != 12 {
+		t.Fatalf("artists = %+v", artists)
 	}
 }
 
