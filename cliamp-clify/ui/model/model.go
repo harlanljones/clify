@@ -380,6 +380,11 @@ type Model struct {
 	themes   []theme.Theme
 	themeIdx int
 
+	// Omarchy live sync: when true, re-read colors.toml when it changes.
+	omarchySync  bool
+	omarchyMtime time.Time
+	omarchyCheck time.Duration
+
 	// Track info overlay (metadata details)
 	showInfo   bool
 	infoScroll int

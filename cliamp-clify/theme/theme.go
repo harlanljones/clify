@@ -124,6 +124,13 @@ func LoadAll() []Theme {
 		loadUserDir(filepath.Join(dir, "themes"), themes)
 	}
 
+	// Live Omarchy desktop theme (lowest priority among named themes).
+	if t, ok := LoadOmarchy(); ok {
+		if _, exists := themes[strings.ToLower(OmarchyName)]; !exists {
+			themes[strings.ToLower(OmarchyName)] = t
+		}
+	}
+
 	// Sort by name.
 	result := make([]Theme, 0, len(themes))
 	for _, t := range themes {

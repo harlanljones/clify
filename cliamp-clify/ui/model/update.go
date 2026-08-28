@@ -119,6 +119,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cachedPos = 0
 		}
 		m.tickVisualizer(now)
+		m.maybeSyncOmarchyTheme(dt)
 		// Process debounced yt-dlp seek.
 		var seekCmd tea.Cmd
 		if cmd := m.tickSeek(dt); cmd != nil {
