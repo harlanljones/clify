@@ -166,8 +166,8 @@ func TestArtistAlbumsMaps(t *testing.T) {
 }
 
 func TestArtistAlbumsRequestsIncludeGroupsAndMapsAll(t *testing.T) {
-	// Artist albums are requested with include_groups=album and, with a 50-item
-	// page, both albums arrive in one request when total <= 50.
+	// Artist albums are requested with include_groups=album and a page size of
+	// 10 (Spotify's max for this endpoint).
 	p := New(&Session{}, "client", 160)
 	p.webAPIFunc = func(_ context.Context, _ string, path string, query url.Values) (*http.Response, error) {
 		if path != "/v1/artists/a1/albums" {
@@ -176,8 +176,8 @@ func TestArtistAlbumsRequestsIncludeGroupsAndMapsAll(t *testing.T) {
 		if query.Get("include_groups") != "album" {
 			t.Errorf("include_groups = %q, want album", query.Get("include_groups"))
 		}
-		if query.Get("limit") != "50" {
-			t.Errorf("limit = %q, want 50", query.Get("limit"))
+		if query.Get("limit") != "10" {
+			t.Errorf("limit = %q, want 10", query.Get("limit"))
 		}
 		return jsonResponse(200, `{"items":[`+
 			`{"id":"alb1","name":"Discovery","artists":[{"id":"a1","name":"Daft Punk"}],"release_date":"2001-03-12","total_tracks":14}`+`,`+
@@ -189,6 +189,43 @@ func TestArtistAlbumsRequestsIncludeGroupsAndMapsAll(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(albums) != 2 || albums[0].Name != "Discovery" || albums[1].Name != "Homework" {
+		t.Fatalf("albums = %+v", albums)
+	}
+}
+
+func TestArtistAlbumsPaginatesAtTen(t *testing.T) {
+	p := New(&Session{}, "client", 160)
+	var calls int
+	p.webAPIFunc = func(_ context.Context, _ string, path string, query url.Values) (*http.Response, error) {
+		if path != "/v1/artists/a1/albums" {
+			t.Fatalf("unexpected path %q", path)
+		}
+		calls++
+		switch query.Get("offset") {
+		case "0":
+			if query.Get("limit") != "10" {
+				t.Fatalf("first page limit = %q, want 10", query.Get("limit"))
+			}
+			return jsonResponse(200, `{"items":[`+
+				`{"id":"alb1","name":"One","artists":[{"id":"a1","name":"Daft Punk"}],"release_date":"2001-03-12","total_tracks":1}`+
+				`],"total":11}`), nil
+		case "10":
+			return jsonResponse(200, `{"items":[`+
+				`{"id":"alb2","name":"Two","artists":[{"id":"a1","name":"Daft Punk"}],"release_date":"2002-03-12","total_tracks":1}`+
+				`],"total":11}`), nil
+		default:
+			t.Fatalf("unexpected offset %q", query.Get("offset"))
+		}
+		return nil, fmt.Errorf("unexpected offset %q", query.Get("offset"))
+	}
+	albums, err := p.ArtistAlbums("a1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 {
+		t.Fatalf("artist album requests = %d, want 2", calls)
+	}
+	if len(albums) != 2 || albums[0].Name != "One" || albums[1].Name != "Two" {
 		t.Fatalf("albums = %+v", albums)
 	}
 }

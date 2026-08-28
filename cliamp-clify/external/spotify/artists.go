@@ -19,6 +19,8 @@ const (
 	// allows 1..50 and a top list is not meaningfully paginated.
 	topArtistsLimit = 50
 	artistCacheTTL  = 5 * time.Minute
+	// artistAlbumPageSize is the Spotify max for /v1/artists/{id}/albums (10).
+	spotifyArtistAlbumPageSize = 10
 	// artistAlbumCountConcurrency bounds parallel /v1/artists/{id}/albums lookups
 	// when enriching top-artist rows with album totals.
 	artistAlbumCountConcurrency = 8
@@ -141,7 +143,7 @@ func (p *SpotifyProvider) ArtistAlbums(artistID string) ([]provider.AlbumInfo, e
 	offset := 0
 	for {
 		query := url.Values{
-			"limit":          {strconv.Itoa(spotifyAlbumPageSize)},
+			"limit":          {strconv.Itoa(spotifyArtistAlbumPageSize)},
 			"offset":         {strconv.Itoa(offset)},
 			"include_groups": {"album"},
 		}
@@ -163,10 +165,10 @@ func (p *SpotifyProvider) ArtistAlbums(artistID string) ([]provider.AlbumInfo, e
 			}
 			all = append(all, albumInfoFromAlbum(item))
 		}
-		if offset+spotifyAlbumPageSize >= result.Total || len(result.Items) == 0 {
+		if offset+spotifyArtistAlbumPageSize >= result.Total || len(result.Items) == 0 {
 			break
 		}
-		offset += spotifyAlbumPageSize
+		offset += spotifyArtistAlbumPageSize
 	}
 
 	return all, nil
