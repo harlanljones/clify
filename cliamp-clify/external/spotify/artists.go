@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/bjarneo/cliamp/playlist"
@@ -18,15 +19,18 @@ const (
 	// allows 1..50 and a top list is not meaningfully paginated.
 	topArtistsLimit = 50
 	artistCacheTTL  = 5 * time.Minute
+	// artistAlbumCountConcurrency bounds parallel /v1/artists/{id}/albums lookups
+	// when enriching top-artist rows with album totals.
+	artistAlbumCountConcurrency = 8
 )
 
 // Compile-time interface check for the "By Artist" browse (top artists).
 var _ provider.ArtistBrowser = (*SpotifyProvider)(nil)
 
 // Artists implements provider.ArtistBrowser. It returns the authenticated
-// user's most-listened artists from /v1/me/top/artists (medium_term). AlbumCount
-// is not returned by the top-artists endpoint, so it is left 0; selecting an
-// artist drills into its albums via ArtistAlbums.
+// user's most-listened artists from /v1/me/top/artists (medium_term). The
+// top-artists endpoint omits album totals, so each row is enriched via
+// /v1/artists/{id}/albums (limit=1, total field).
 func (p *SpotifyProvider) Artists() ([]provider.ArtistInfo, error) {
 	if err := p.ensureSession(); err != nil {
 		return nil, err
@@ -66,6 +70,7 @@ func (p *SpotifyProvider) Artists() ([]provider.ArtistInfo, error) {
 		}
 		all = append(all, provider.ArtistInfo{ID: item.ID, Name: item.Name})
 	}
+	p.enrichArtistAlbumCounts(ctx, all)
 
 	p.mu.Lock()
 	p.artistCache = all
@@ -73,6 +78,52 @@ func (p *SpotifyProvider) Artists() ([]provider.ArtistInfo, error) {
 	p.mu.Unlock()
 
 	return all, nil
+}
+
+// artistAlbumTotal returns the number of albums for artistID using a minimal
+// /v1/artists/{id}/albums request (limit=1) and the response total field.
+func (p *SpotifyProvider) artistAlbumTotal(ctx context.Context, artistID string) (int, error) {
+	query := url.Values{
+		"limit":          {"1"},
+		"offset":         {"0"},
+		"include_groups": {"album"},
+	}
+	path := fmt.Sprintf("/v1/artists/%s/albums", url.PathEscape(artistID))
+	resp, err := p.webAPI(ctx, "GET", path, query)
+	if err != nil {
+		return 0, err
+	}
+	var result struct {
+		Total int `json:"total"`
+	}
+	if err := decodeBody(resp, &result); err != nil {
+		return 0, err
+	}
+	return result.Total, nil
+}
+
+// enrichArtistAlbumCounts fills AlbumCount on each artist row. Failures are
+// ignored so a single lookup error does not block the browse list.
+func (p *SpotifyProvider) enrichArtistAlbumCounts(ctx context.Context, artists []provider.ArtistInfo) {
+	if len(artists) == 0 {
+		return
+	}
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, artistAlbumCountConcurrency)
+	for i := range artists {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			total, err := p.artistAlbumTotal(ctx, artists[i].ID)
+			if err != nil {
+				return
+			}
+			artists[i].AlbumCount = total
+		}(i)
+	}
+	wg.Wait()
 }
 
 // ArtistAlbums implements provider.ArtistBrowser. It returns the albums of the
