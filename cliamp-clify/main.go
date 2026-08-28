@@ -389,6 +389,8 @@ func run(overrides config.Overrides, positional []string, daemon bool) error {
 	}
 	if cfg.Theme != "" {
 		m.SetTheme(cfg.Theme)
+	} else if t, ok := theme.LoadOmarchy(); ok {
+		m.EnableOmarchySync(t)
 	}
 	if cfg.Visualizer != "" {
 		m.SetVisualizer(cfg.Visualizer)

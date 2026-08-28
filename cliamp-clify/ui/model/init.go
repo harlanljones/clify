@@ -20,6 +20,47 @@ func applyThemeAll(t theme.Theme) {
 	rebuildModelStyles()
 }
 
+// EnableOmarchySync applies the active Omarchy palette and watches
+// ~/.config/omarchy/current/theme/colors.toml for live theme swaps.
+func (m *Model) EnableOmarchySync(t theme.Theme) {
+	applyThemeAll(t)
+	m.omarchySync = true
+	m.omarchyMtime, _ = theme.OmarchyModTime()
+	m.omarchyCheck = 0
+	for i, th := range m.themes {
+		if strings.EqualFold(th.Name, theme.OmarchyName) {
+			m.themeIdx = i
+			return
+		}
+	}
+}
+
+// maybeSyncOmarchyTheme reloads spectrum/UI colors when the Omarchy theme file changes.
+func (m *Model) maybeSyncOmarchyTheme(dt time.Duration) {
+	if !m.omarchySync {
+		return
+	}
+	m.omarchyCheck += dt
+	if m.omarchyCheck < 2*time.Second {
+		return
+	}
+	m.omarchyCheck = 0
+
+	mod, err := theme.OmarchyModTime()
+	if err != nil || mod.Equal(m.omarchyMtime) {
+		return
+	}
+	t, ok := theme.LoadOmarchy()
+	if !ok {
+		return
+	}
+	m.omarchyMtime = mod
+	applyThemeAll(t)
+	if m.vis != nil {
+		m.vis.RequestRefresh()
+	}
+}
+
 // New creates a Model wired to the given player and playlist.
 // providers is the ordered list of available providers (Radio, Navidrome, Spotify, Jellyfin, etc.).
 // defaultProvider is the config key of the provider to select initially.
@@ -122,12 +163,18 @@ func (m *Model) SetSeekStepLarge(d time.Duration) {
 func (m *Model) SetTheme(name string) bool {
 	if name == "" || strings.EqualFold(name, "default") {
 		m.themeIdx = -1
+		m.omarchySync = false
 		applyThemeAll(theme.Default())
 		return true
 	}
 	for i, t := range m.themes {
 		if strings.EqualFold(t.Name, name) {
 			m.themeIdx = i
+			m.omarchySync = strings.EqualFold(t.Name, theme.OmarchyName)
+			if m.omarchySync {
+				m.omarchyMtime, _ = theme.OmarchyModTime()
+				m.omarchyCheck = 0
+			}
 			applyThemeAll(t)
 			return true
 		}
